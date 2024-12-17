@@ -267,10 +267,19 @@ export default function ParserPage() {
   }, [transactions?.transactions, period]);
 
   // Мемоизированные отфильтрованные и отсортированные данные
+  // Изменяем обработку транзакций в processedTransactions
   const processedTransactions = useMemo(() => {
     if (!transactions?.transactions) return [];
 
     return transactions.transactions
+      .map((tx) => ({
+        ...tx,
+        // Изменяем логику: если отправитель - наш кошелек, то это исходящая транзакция
+        type:
+          tx.fromAddress === wallet?.TronWallet?.address
+            ? "outgoing"
+            : "incoming",
+      }))
       .filter((tx) => {
         if (!searchQuery) return true;
         const query = searchQuery.toLowerCase();
@@ -302,7 +311,7 @@ export default function ParserPage() {
 
         return 0;
       });
-  }, [transactions?.transactions, searchQuery, sortConfig]);
+  }, [transactions?.transactions, searchQuery, sortConfig, wallet?.TronWallet]);
 
   // Эффект для автоматического обновления каждые 3 минуты
   useEffect(() => {
@@ -448,7 +457,7 @@ export default function ParserPage() {
                     dataKey={
                       chartMode === "amount" ? "incoming" : "incomingCount"
                     }
-                    fill="var(--success)"
+                    fill="hsl(var(--success))"
                     radius={[4, 4, 0, 0]}
                   />
                   <Bar
@@ -456,7 +465,7 @@ export default function ParserPage() {
                     dataKey={
                       chartMode === "amount" ? "outgoing" : "outgoingCount"
                     }
-                    fill="var(--destructive)"
+                    fill="hsl()"
                     radius={[4, 4, 0, 0]}
                   />
                 </BarChart>

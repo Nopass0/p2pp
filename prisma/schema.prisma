@@ -19,6 +19,7 @@ model User {
   isAdmin    Boolean  @default(false)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
+  tgAuthToken String?
 
   // Relations
   sessions         Session[]
@@ -27,6 +28,7 @@ model User {
   gateTransactions GateTransaction[]
   TronWallet       TronWallet?
   TronTransaction  TronTransaction[]
+  TelegramTransaction TelegramTransaction[]
 
   @@index([telegramId])
 }
@@ -117,7 +119,35 @@ model GateTransaction {
   @@index([transactionId])
 }
 
-// Add to your schema.prisma
+model TelegramTransaction {
+  id                        Int       @id @default(autoincrement())
+  userId                    Int
+  transactionId             Int       @unique
+  type                      String
+  createdAt                 DateTime
+  updatedAt                 DateTime  @updatedAt
+  amount                    Float
+  currency                  String
+  status                    String
+  gateway                   String
+  username                  String?
+  tg_id                     String?
+  input_addresses           String?
+  recipient_wallet_address  String?
+  activated_amount          Float?
+  photo_url                 String?
+  details_for_user          String?
+  pair_transaction_currency String?
+  is_blocked                Boolean   @default(false)
+  network                   String?
+  cryptocurrency_exchange   String?
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([transactionId])
+}
 
 model TronWallet {
   id        Int      @id @default(autoincrement())

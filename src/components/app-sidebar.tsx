@@ -45,6 +45,10 @@ const regularMenuItems = [
     items: [
       {
         title: "Telegram Wallet",
+        path: "/dashboard/parser/tg",
+      },
+      {
+        title: "Tron",
         path: "/dashboard/parser",
       },
       {

@@ -1,13 +1,14 @@
 // src/app/api/init/route.ts
 import { NextResponse } from "next/server";
-import { startBackgroundWorkers } from "@/server/worker";
+//@tg-ignore
+import { runWorkers } from "@/server/worker";
 
 let isInitialized = false;
 
 export async function GET() {
   if (!isInitialized) {
     try {
-      await startBackgroundWorkers();
+      await runWorkers();
       isInitialized = true;
       return NextResponse.json({
         status: "success",
