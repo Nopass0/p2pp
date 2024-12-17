@@ -18,7 +18,6 @@ export const walletRouter = createTRPCRouter({
     )
     .query(async ({ ctx, input }) => {
       try {
-        // 1. Получаем текущего пользователя
         const user = await ctx.db.user.findUnique({
           where: { id: ctx.user.id },
         });
@@ -30,127 +29,63 @@ export const walletRouter = createTRPCRouter({
           };
         }
 
-        // 2. Очищаем токен от символов переноса строки
+        // Очищаем токен от символов переноса строки
         const cleanToken = user.tgAuthToken.replace(/[\r\n]+/g, "").trim();
 
-        // 3. Синхронизируем данные из API
-        try {
-          const response = await axios.get(
-            "https://walletbot.me/api/v1/transactions/",
-            {
-              params: { limit: 100 },
-              headers: { Authorization: cleanToken },
-              timeout: 10000,
-            },
-          );
+        // Получаем данные напрямую из API
+        const response = await axios.get(
+          "https://walletbot.me/api/v1/transactions/",
+          {
+            params: { limit: 100 },
+            headers: { Authorization: cleanToken },
+            timeout: 10000,
+          },
+        );
 
-          if (response.data?.transactions) {
-            for (const tx of response.data.transactions) {
-              await ctx.db.telegramTransaction.upsert({
-                where: { transactionId: tx.id },
-                update: {
-                  type: tx.type,
-                  updatedAt: new Date(),
-                  amount: parseFloat(tx.amount),
-                  currency: tx.currency,
-                  status: tx.status,
-                  gateway: tx.gateway,
-                  username: tx.username,
-                  tg_id: tx.tg_id?.toString(),
-                  input_addresses: tx.input_addresses,
-                  recipient_wallet_address: tx.recipient_wallet_address,
-                  activated_amount: tx.activated_amount
-                    ? parseFloat(tx.activated_amount)
-                    : null,
-                  photo_url: tx.photo_url,
-                  details_for_user: tx.details_for_user,
-                  pair_transaction_currency: tx.pair_transaction_currency,
-                  is_blocked: tx.is_blocked ?? false,
-                  network: tx.network,
-                  cryptocurrency_exchange: tx.cryptocurrency_exchange,
-                },
-                create: {
-                  userId: user.id,
-                  transactionId: tx.id,
-                  type: tx.type,
-                  createdAt: new Date(tx.created_at),
-                  updatedAt: new Date(),
-                  amount: parseFloat(tx.amount),
-                  currency: tx.currency,
-                  status: tx.status,
-                  gateway: tx.gateway,
-                  username: tx.username,
-                  tg_id: tx.tg_id?.toString(),
-                  input_addresses: tx.input_addresses,
-                  recipient_wallet_address: tx.recipient_wallet_address,
-                  activated_amount: tx.activated_amount
-                    ? parseFloat(tx.activated_amount)
-                    : null,
-                  photo_url: tx.photo_url,
-                  details_for_user: tx.details_for_user,
-                  pair_transaction_currency: tx.pair_transaction_currency,
-                  is_blocked: tx.is_blocked ?? false,
-                  network: tx.network,
-                  cryptocurrency_exchange: tx.cryptocurrency_exchange,
-                },
-              });
-            }
-
-            if (response.data.next) {
-              try {
-                const nextCursor = new URL(response.data.next).searchParams.get(
-                  "cursor",
-                );
-                if (nextCursor) {
-                  // Передаем очищенный токен в функцию синхронизации
-                  await syncTelegramTransactionsForUser(
-                    ctx.db,
-                    user.id,
-                    parseInt(nextCursor),
-                    cleanToken, // Добавляем очищенный токен как параметр
-                  );
-                }
-              } catch (paginationError) {
-                console.error("Error processing pagination:", paginationError);
-              }
-            }
-          }
-        } catch (apiError) {
-          console.error("Error syncing with Telegram API:", apiError);
-          if (
-            axios.isAxiosError(apiError) &&
-            apiError.response?.status === 401
-          ) {
-            // Если токен недействителен, очищаем его
-            await ctx.db.user.update({
-              where: { id: user.id },
-              data: { tgAuthToken: null },
-            });
-            return {
-              success: false,
-              error: "Invalid or expired token",
-            };
-          }
+        if (!response.data?.transactions) {
+          return {
+            success: false,
+            error: "No transactions found",
+          };
         }
 
-        // 4. Получаем данные из базы
-        const transactions = await ctx.db.telegramTransaction.findMany({
-          where: {
-            userId: ctx.user.id,
-            OR: [
-              { gateway: "p2p_offer" },
-              { gateway: "top_up" },
-              { gateway: "withdraw_onchain" },
-            ],
-            createdAt: {
-              gte: input.dateFrom,
-              lte: input.dateTo,
-            },
-          },
-          orderBy: {
-            createdAt: "desc",
-          },
-        });
+        // Фильтруем и форматируем транзакции
+        const transactions = response.data.transactions
+          .filter((tx: any) => {
+            const txDate = new Date(tx.created_at);
+            return (
+              txDate >= input.dateFrom &&
+              txDate <= input.dateTo &&
+              ["p2p_offer", "top_up", "withdraw_onchain"].includes(tx.gateway)
+            );
+          })
+          .map((tx: any) => ({
+            id: tx.id,
+            transactionId: tx.id,
+            type: tx.type,
+            createdAt: new Date(tx.created_at),
+            updatedAt: new Date(tx.updated_at),
+            amount: parseFloat(tx.amount),
+            currency: tx.currency,
+            status: tx.status,
+            gateway: tx.gateway,
+            username: tx.username,
+            tg_id: tx.tg_id?.toString(),
+            input_addresses: tx.input_addresses,
+            recipient_wallet_address: tx.recipient_wallet_address,
+            activated_amount: tx.activated_amount
+              ? parseFloat(tx.activated_amount)
+              : null,
+            photo_url: tx.photo_url,
+            details_for_user: tx.details_for_user,
+            pair_transaction_currency: tx.pair_transaction_currency,
+            is_blocked: tx.is_blocked ?? false,
+            network: tx.network,
+            cryptocurrency_exchange: tx.cryptocurrency_exchange,
+          }))
+          .sort(
+            (a: any, b: any) => b.createdAt.getTime() - a.createdAt.getTime(),
+          );
 
         return {
           success: true,
@@ -158,6 +93,17 @@ export const walletRouter = createTRPCRouter({
         };
       } catch (error) {
         console.error("Failed to fetch transactions:", error);
+        if (axios.isAxiosError(error) && error.response?.status === 401) {
+          // Если токен недействителен, очищаем его
+          await ctx.db.user.update({
+            where: { id: ctx.user.id },
+            data: { tgAuthToken: null },
+          });
+          return {
+            success: false,
+            error: "Invalid or expired token",
+          };
+        }
         return {
           success: false,
           error:
