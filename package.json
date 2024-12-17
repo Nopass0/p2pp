@@ -14,6 +14,7 @@
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,mdx}\" --cache",
     "format:write": "prettier --write \"**/*.{ts,tsx,js,jsx,mdx}\" --cache",
     "postinstall": "prisma generate",
+    "vercel-build": "prisma generate && prisma migrate deploy && prisma db push && next build",
     "lint": "next lint",
     "lint:fix": "next lint --fix",
     "preview": "next build && next start",
