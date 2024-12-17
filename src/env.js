@@ -14,7 +14,6 @@ export const env = createEnv({
       .string()
       .default("true")
       .transform((value) => value === "true"),
-```
   },
   client: {
     NEXT_PUBLIC_TELEGRAM_BOT_USERNAME: z.string().min(1),
