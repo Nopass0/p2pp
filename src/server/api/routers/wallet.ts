@@ -74,7 +74,7 @@ export const walletRouter = createTRPCRouter({
           throw new Error("Invalid token");
         }
 
-        const updatedUser = await db.user.update({
+        const updatedUser = await ctx.db.user.update({
           where: { id: ctx.user.id },
           //@tg-ignore
           data: { tgAuthToken: input.token },
