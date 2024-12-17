@@ -5,15 +5,15 @@ import { getServerAuthSession } from "@/server/auth";
 export default async function DashboardPage() {
   const session = await getServerAuthSession();
 
-  if (!session) {
-    redirect("/auth/signin");
-  }
+  // if (!session) {
+  //   redirect("/auth/signin");
+  // }
 
   const { user } = session;
 
   return (
     <div className="container">
-      <h1 className="text-2xl font-bold">
+      {/* <h1 className="text-2xl font-bold">
         Добро пожаловать, {user.firstName} {user.lastName}!
       </h1>
       <p className="text-muted-foreground">
@@ -23,7 +23,7 @@ export default async function DashboardPage() {
         <p className="text-sm text-green-600 dark:text-green-400">
           Администратор
         </p>
-      )}
+      )} */}
     </div>
   );
 }
