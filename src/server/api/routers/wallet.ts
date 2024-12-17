@@ -30,19 +30,21 @@ export const walletRouter = createTRPCRouter({
           };
         }
 
-        // 2. Синхронизируем свежие данные из API
+        // 2. Очищаем токен от символов переноса строки
+        const cleanToken = user.tgAuthToken.replace(/[\r\n]+/g, "").trim();
+
+        // 3. Синхронизируем данные из API
         try {
           const response = await axios.get(
             "https://walletbot.me/api/v1/transactions/",
             {
-              params: { limit: 100 }, // Увеличиваем лимит для получения большего количества транзакций
-              headers: { Authorization: user.tgAuthToken },
+              params: { limit: 100 },
+              headers: { Authorization: cleanToken },
               timeout: 10000,
             },
           );
 
           if (response.data?.transactions) {
-            // Сохраняем все полученные транзакции
             for (const tx of response.data.transactions) {
               await ctx.db.telegramTransaction.upsert({
                 where: { transactionId: tx.id },
@@ -94,26 +96,44 @@ export const walletRouter = createTRPCRouter({
               });
             }
 
-            // Если есть следующая страница, загружаем и её
             if (response.data.next) {
-              const nextCursor = new URL(response.data.next).searchParams.get(
-                "cursor",
-              );
-              if (nextCursor) {
-                await syncTelegramTransactionsForUser(
-                  ctx.db,
-                  user.id,
-                  parseInt(nextCursor),
+              try {
+                const nextCursor = new URL(response.data.next).searchParams.get(
+                  "cursor",
                 );
+                if (nextCursor) {
+                  // Передаем очищенный токен в функцию синхронизации
+                  await syncTelegramTransactionsForUser(
+                    ctx.db,
+                    user.id,
+                    parseInt(nextCursor),
+                    cleanToken, // Добавляем очищенный токен как параметр
+                  );
+                }
+              } catch (paginationError) {
+                console.error("Error processing pagination:", paginationError);
               }
             }
           }
-        } catch (error) {
-          console.error("Error syncing with Telegram API:", error);
-          // Продолжаем выполнение даже при ошибке API, чтобы вернуть хотя бы существующие данные
+        } catch (apiError) {
+          console.error("Error syncing with Telegram API:", apiError);
+          if (
+            axios.isAxiosError(apiError) &&
+            apiError.response?.status === 401
+          ) {
+            // Если токен недействителен, очищаем его
+            await ctx.db.user.update({
+              where: { id: user.id },
+              data: { tgAuthToken: null },
+            });
+            return {
+              success: false,
+              error: "Invalid or expired token",
+            };
+          }
         }
 
-        // 3. Получаем обновленные данные из базы
+        // 4. Получаем данные из базы
         const transactions = await ctx.db.telegramTransaction.findMany({
           where: {
             userId: ctx.user.id,
@@ -140,7 +160,10 @@ export const walletRouter = createTRPCRouter({
         console.error("Failed to fetch transactions:", error);
         return {
           success: false,
-          error: "Failed to fetch transactions",
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to fetch transactions",
         };
       }
     }),
@@ -193,12 +216,18 @@ async function syncTelegramTransactionsForUser(
   prisma: PrismaClient,
   userId: number,
   cursor?: number,
+  cleanToken?: string,
 ) {
   const user = await prisma.user.findUnique({
     where: { id: userId },
   });
-  //@tg-ignore
-  if (!user?.tgAuthToken) return;
+
+  if (!user) return;
+
+  // Используем переданный очищенный токен или очищаем существующий
+  const token = cleanToken || user.tgAuthToken?.replace(/[\r\n]+/g, "").trim();
+
+  if (!token) return;
 
   try {
     const response = await axios.get(
@@ -206,7 +235,7 @@ async function syncTelegramTransactionsForUser(
       {
         params: { limit: 50, cursor },
         //@tg-ignore
-        headers: { Authorization: user.tgAuthToken },
+        headers: { Authorization: token },
         timeout: 10000, // Добавляем таймаут
       },
     );
