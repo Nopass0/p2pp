@@ -11,6 +11,7 @@ export function withCors(handler: Function) {
         "https://t.me",
         process.env.NEXT_PUBLIC_APP_URL,
         "https://incredibly-firm-gull.ngrok-free.app/dashboard",
+        "https://p2pp.vercel.app",
         "http://localhost:3000",
       ].filter(Boolean);
 
