@@ -10,7 +10,11 @@ export const env = createEnv({
     NODE_ENV: z
       .enum(["development", "production", "test"])
       .default("development"),
-    RUN_WORKERS_LOCALLY: z.boolean().default(false),
+    RUN_WORKERS_LOCALLY: z
+      .string()
+      .default("true")
+      .transform((value) => value === "true"),
+```
   },
   client: {
     NEXT_PUBLIC_TELEGRAM_BOT_USERNAME: z.string().min(1),
