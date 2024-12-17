@@ -19,6 +19,11 @@ export const walletRouter = createTRPCRouter({
     .query(async ({ ctx, input }) => {
       try {
         // Изменен фильтр для получения только p2p транзакций
+        //
+        //
+        const updatedUser = await ctx.db.user.findFirst({
+          where: { id: ctx.user.id },
+        });
         //@tg-ignore
         await syncTelegramTransactionsForUser(ctx.db, updatedUser.id);
 
