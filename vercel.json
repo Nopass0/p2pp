@@ -1,0 +1,12 @@
+{
+  "crons": [
+    {
+      "path": "/api/gate-cron",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/tron-cron",
+      "schedule": "*/5 * * * *"
+    }
+  ]
+}

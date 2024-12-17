@@ -2,25 +2,26 @@ import { PrismaClient } from "@prisma/client";
 import { startGateSyncService } from "@/services/gateSyncService";
 import { startTronSyncService } from "@/services/tronSyncService";
 
-let isWorkerStarted = false;
-
-export async function startBackgroundWorkers() {
-  if (isWorkerStarted) {
-    console.log("Background workers already started");
-    return;
-  }
-
-  console.log("Starting background workers...");
+async function runWorkers() {
+  console.log("Starting background workers locally...");
   const prisma = new PrismaClient();
 
   try {
-    // Запускаем все фоновые сервисы
     await startGateSyncService(prisma);
     await startTronSyncService(prisma);
-    isWorkerStarted = true;
-    console.log("Background workers started successfully");
+    console.log("Background workers finished locally.");
   } catch (error) {
-    console.error("Error starting background workers:", error);
-    throw error;
+    console.error("Error running background workers locally:", error);
+  } finally {
+    await prisma.$disconnect();
   }
+}
+
+// Only run if the environment variable is set
+if (process.env.RUN_WORKERS_LOCALLY === "true") {
+  runWorkers();
+} else {
+  console.log(
+    "RUN_WORKERS_LOCALLY environment variable not set. Skipping local worker execution.",
+  );
 }
