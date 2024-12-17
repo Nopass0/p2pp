@@ -4,10 +4,7 @@
       "path": "/api/gate-cron",
       "schedule": "*/5 * * * *"
     },
-    {
-      "path": "/api/tron-cron",
-      "schedule": "*/5 * * * *"
-    },
+
     {
       "path": "/api/telegram-cron",
       "schedule": "*/5 * * * *"
