@@ -10,6 +10,7 @@ export const env = createEnv({
     NODE_ENV: z
       .enum(["development", "production", "test"])
       .default("development"),
+    RUN_WORKERS_LOCALLY: z.boolean().default(false),
   },
   client: {
     NEXT_PUBLIC_TELEGRAM_BOT_USERNAME: z.string().min(1),
@@ -22,6 +23,7 @@ export const env = createEnv({
     NEXT_PUBLIC_TELEGRAM_BOT_USERNAME:
       process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME,
     NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
+    RUN_WORKERS_LOCALLY: process.env.RUN_WORKERS_LOCALLY,
   },
   skipValidation: !!process.env.SKIP_ENV_VALIDATION,
   emptyStringAsUndefined: true,
