@@ -45,11 +45,9 @@ export const walletRouter = createTRPCRouter({
           where: { id: ctx.user.id },
           select: {
             id: true,
-            //@tg-ignore
             tgAuthToken: true,
           },
         });
-        //@tg-ignore
 
         if (!user?.tgAuthToken) {
           console.log("No token found for user:", ctx.user.id);
@@ -58,7 +56,6 @@ export const walletRouter = createTRPCRouter({
             error: "No Telegram token found",
           };
         }
-        //@tg-ignore
 
         const cleanToken = user.tgAuthToken.replace(/[\r\n]+/g, "").trim();
         console.log("Token length after cleaning:", cleanToken.length);
@@ -131,8 +128,6 @@ export const walletRouter = createTRPCRouter({
           ) {
             await ctx.db.user.update({
               where: { id: ctx.user.id },
-              //@tg-ignore
-
               data: { tgAuthToken: null },
             });
             return {
@@ -194,17 +189,12 @@ export const walletRouter = createTRPCRouter({
         // Сохраняем токен
         const updatedUser = await ctx.db.user.update({
           where: { id: ctx.user.id },
-          //@tg-ignore
-
           data: { tgAuthToken: cleanToken },
           select: {
             id: true,
-            //@tg-ignore
-
             tgAuthToken: true,
           },
         });
-        //@tg-ignore
 
         if (!updatedUser.tgAuthToken) {
           throw new Error("Token was not saved");
