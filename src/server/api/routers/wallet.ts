@@ -18,15 +18,102 @@ export const walletRouter = createTRPCRouter({
     )
     .query(async ({ ctx, input }) => {
       try {
-        // Изменен фильтр для получения только p2p транзакций
-        //
-        //
-        const updatedUser = await ctx.db.user.findFirst({
+        // 1. Получаем текущего пользователя
+        const user = await ctx.db.user.findUnique({
           where: { id: ctx.user.id },
         });
-        //@tg-ignore
-        await syncTelegramTransactionsForUser(ctx.db, updatedUser.id);
 
+        if (!user || !user.tgAuthToken) {
+          return {
+            success: false,
+            error: "User not found or no Telegram token",
+          };
+        }
+
+        // 2. Синхронизируем свежие данные из API
+        try {
+          const response = await axios.get(
+            "https://walletbot.me/api/v1/transactions/",
+            {
+              params: { limit: 100 }, // Увеличиваем лимит для получения большего количества транзакций
+              headers: { Authorization: user.tgAuthToken },
+              timeout: 10000,
+            },
+          );
+
+          if (response.data?.transactions) {
+            // Сохраняем все полученные транзакции
+            for (const tx of response.data.transactions) {
+              await ctx.db.telegramTransaction.upsert({
+                where: { transactionId: tx.id },
+                update: {
+                  type: tx.type,
+                  updatedAt: new Date(),
+                  amount: parseFloat(tx.amount),
+                  currency: tx.currency,
+                  status: tx.status,
+                  gateway: tx.gateway,
+                  username: tx.username,
+                  tg_id: tx.tg_id?.toString(),
+                  input_addresses: tx.input_addresses,
+                  recipient_wallet_address: tx.recipient_wallet_address,
+                  activated_amount: tx.activated_amount
+                    ? parseFloat(tx.activated_amount)
+                    : null,
+                  photo_url: tx.photo_url,
+                  details_for_user: tx.details_for_user,
+                  pair_transaction_currency: tx.pair_transaction_currency,
+                  is_blocked: tx.is_blocked ?? false,
+                  network: tx.network,
+                  cryptocurrency_exchange: tx.cryptocurrency_exchange,
+                },
+                create: {
+                  userId: user.id,
+                  transactionId: tx.id,
+                  type: tx.type,
+                  createdAt: new Date(tx.created_at),
+                  updatedAt: new Date(),
+                  amount: parseFloat(tx.amount),
+                  currency: tx.currency,
+                  status: tx.status,
+                  gateway: tx.gateway,
+                  username: tx.username,
+                  tg_id: tx.tg_id?.toString(),
+                  input_addresses: tx.input_addresses,
+                  recipient_wallet_address: tx.recipient_wallet_address,
+                  activated_amount: tx.activated_amount
+                    ? parseFloat(tx.activated_amount)
+                    : null,
+                  photo_url: tx.photo_url,
+                  details_for_user: tx.details_for_user,
+                  pair_transaction_currency: tx.pair_transaction_currency,
+                  is_blocked: tx.is_blocked ?? false,
+                  network: tx.network,
+                  cryptocurrency_exchange: tx.cryptocurrency_exchange,
+                },
+              });
+            }
+
+            // Если есть следующая страница, загружаем и её
+            if (response.data.next) {
+              const nextCursor = new URL(response.data.next).searchParams.get(
+                "cursor",
+              );
+              if (nextCursor) {
+                await syncTelegramTransactionsForUser(
+                  ctx.db,
+                  user.id,
+                  parseInt(nextCursor),
+                );
+              }
+            }
+          }
+        } catch (error) {
+          console.error("Error syncing with Telegram API:", error);
+          // Продолжаем выполнение даже при ошибке API, чтобы вернуть хотя бы существующие данные
+        }
+
+        // 3. Получаем обновленные данные из базы
         const transactions = await ctx.db.telegramTransaction.findMany({
           where: {
             userId: ctx.user.id,
