@@ -1,11 +1,6 @@
 {
   "crons": [
     {
-      "path": "/api/gate-cron",
-      "schedule": "*/5 * * * *"
-    },
-
-    {
       "path": "/api/telegram-cron",
       "schedule": "*/5 * * * *"
     }
