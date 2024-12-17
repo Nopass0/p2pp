@@ -1,43 +1,67 @@
 "use client";
 
-import { useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
+import { api } from "@/trpc/react";
+import { useEffect, useState } from "react";
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
+  const [redirected, setRedirected] = useState(false); // Track if redirect has happened
+
+  const {
+    data: session,
+    isLoading: isSessionLoading,
+    isFetching: isSessionFetching,
+    isError,
+    error,
+  } = api.auth.getSession.useQuery(undefined, {
+    retry: 0,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
+    staleTime: Infinity,
+    gcTime: 0,
+  });
 
   useEffect(() => {
-    // Проверяем авторизацию
-    const checkAuth = () => {
-      const token = localStorage.getItem("token");
-      const isAuthPage = pathname === "/";  // Путь страницы входа
-      
-      if (!token && !isAuthPage) {
-        router.push("/");
+    if (!isSessionLoading && !isSessionFetching && !redirected) {
+      // Check redirected flag
+      console.log("AuthProvider useEffect:", {
+        pathname,
+        session,
+      });
+
+      if (isError) {
+        console.error("Error fetching session:", error);
       }
-    };
 
-    checkAuth();
+      if (pathname === "/auth" && session && session.user) {
+        console.log("Redirecting to /dashboard");
+        router.replace("/dashboard");
+        setRedirected(true); // Set the flag after redirect
+      }
 
-    // Добавляем токен в заголовки для всех fetch запросов
-    const originalFetch = window.fetch;
-    window.fetch = async function (input, init) {
-      const token = localStorage.getItem("token");
-      const modifiedInit = {
-        ...init,
-        headers: {
-          ...init?.headers,
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-      };
-      return originalFetch(input, modifiedInit);
-    };
+      if (pathname !== "/auth" && (!session || !session.user)) {
+        console.log("Redirecting to /auth");
+        router.replace("/auth");
+        setRedirected(true); // Set the flag after redirect
+      }
+    }
+  }, [
+    isSessionLoading,
+    isSessionFetching,
+    session,
+    pathname,
+    router,
+    isError,
+    error,
+    redirected, // Include redirected in dependencies
+  ]);
 
-    return () => {
-      window.fetch = originalFetch;
-    };
-  }, [pathname, router]);
+  if (isSessionLoading || isSessionFetching) {
+    return null;
+  }
 
   return children;
 }

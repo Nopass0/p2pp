@@ -9,6 +9,13 @@ import { type AppRouter } from "@/server/api/root";
 
 export const api = createTRPCReact<AppRouter>();
 
+function getAuthToken() {
+  if (typeof window !== "undefined") {
+    return localStorage.getItem("token");
+  }
+  return null;
+}
+
 export function TRPCReactProvider(props: {
   children: React.ReactNode;
   headers: Headers;
@@ -42,6 +49,10 @@ export function TRPCReactProvider(props: {
           headers() {
             const heads = new Headers(props.headers);
             heads.set("x-trpc-source", "react");
+            const token = getAuthToken();
+            if (token) {
+              heads.set("authorization", `Bearer ${token}`);
+            }
             return Object.fromEntries(heads.entries());
           },
         }),

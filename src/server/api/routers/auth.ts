@@ -24,8 +24,28 @@ const telegramAuthSchema = z.object({
 
 export const authRouter = createTRPCRouter({
   getSession: protectedProcedure.query(({ ctx }) => {
-    if (!ctx.user) return null;
+    // Теперь нам не нужна проверка ctx.session
     return { user: ctx.user };
+  }),
+
+  validateToken: publicProcedure.query(async ({ ctx }) => {
+    const token = ctx.headers.get("authorization")?.replace("Bearer ", "");
+    if (!token) return { isValid: false };
+
+    const session = await ctx.db.session.findFirst({
+      where: {
+        token,
+        expiresAt: { gt: new Date() },
+      },
+      include: {
+        user: true,
+      },
+    });
+
+    return {
+      isValid: !!session?.user,
+      user: session?.user || null,
+    };
   }),
 
   telegramAuth: publicProcedure
@@ -110,28 +130,33 @@ export const authRouter = createTRPCRouter({
           };
         });
 
-        console.log("Transaction completed successfully, returning result:", result);
+        console.log("Transaction completed successfully");
         return result;
       } catch (error) {
         console.error("Error in telegramAuth:", error);
-        
+
         if (error instanceof TRPCError) {
           throw error;
         }
 
-        if (error instanceof Error) {
-          console.error("Error details:", {
-            name: error.name,
-            message: error.message,
-            stack: error.stack
-          });
-        }
-
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: error instanceof Error ? error.message : "Authentication failed",
+          message: "Authentication failed",
           cause: error,
         });
       }
     }),
+
+  logout: protectedProcedure.mutation(async ({ ctx }) => {
+    const token = ctx.headers.get("authorization")?.replace("Bearer ", "");
+    if (token) {
+      await ctx.db.session.deleteMany({
+        where: {
+          token,
+          userId: ctx.user.id,
+        },
+      });
+    }
+    return { success: true };
+  }),
 });

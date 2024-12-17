@@ -3,87 +3,76 @@ import { type NextRequest } from "next/server";
 import { env } from "@/env";
 import { appRouter } from "@/server/api/root";
 import { createTRPCContext } from "@/server/api/trpc";
-import { startBackgroundWorkers } from "@/server/worker";
-
-// Запускаем бэкграунд воркеры при первом запросе
-let isInitialized = false;
-async function initialize() {
-  if (!isInitialized) {
-    await startBackgroundWorkers();
-    isInitialized = true;
-  }
-}
+import { type FetchCreateContextFnOptions } from "@trpc/server/adapters/fetch";
 
 const handler = async (req: NextRequest) => {
-  console.log("API Route Handler - Request method:", req.method);
-  console.log("API Route Handler - Request path:", req.nextUrl.pathname);
-
-  // Инициализируем бэкграунд воркеры
-  await initialize();
-
-  const response = await fetchRequestHandler({
-    endpoint: "/api/trpc",
-    req,
-    router: appRouter,
-    createContext: async () => {
-      const ctx = await createTRPCContext({
-        headers: req.headers,
-      });
-      return ctx;
-    },
-    onError: ({ path, error }) => {
-      console.error(`❌ tRPC failed on ${path ?? "<no-path>"}:`, {
-        name: error.name,
-        message: error.message,
-        code: error.code,
-        stack: error.stack,
-        cause: error.cause,
-      });
-    },
-  });
-
-  // Add CORS headers
-  const allowedOrigins = [
-    "https://telegram.org",
-    "https://oauth.telegram.org",
-    "https://t.me",
-    process.env.NEXT_PUBLIC_APP_URL,
-    "https://mostly-assured-kodiak.ngrok-free.app"
-  ].filter(Boolean);
-
-  const origin = req.headers.get("origin");
-  
-  if (origin && allowedOrigins.includes(origin)) {
-    response.headers.set("Access-Control-Allow-Origin", origin);
-    response.headers.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-    response.headers.set("Access-Control-Allow-Headers", [
-      "Content-Type",
-      "Authorization",
-      "x-trpc-source"
-    ].join(", "));
-    response.headers.set("Access-Control-Allow-Credentials", "true");
+  // Handle preflight requests for CORS
+  if (req.method === "OPTIONS") {
+    return new Response(null, {
+      status: 200,
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+        "Access-Control-Allow-Headers":
+          "X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization",
+        "Access-Control-Max-Age": "86400",
+      },
+    });
   }
 
-  return response;
+  try {
+    const response = await fetchRequestHandler({
+      endpoint: "/api/trpc",
+      req,
+      router: appRouter,
+      createContext: async (opts: FetchCreateContextFnOptions) => {
+        return await createTRPCContext({
+          headers: opts.req.headers,
+        });
+      },
+      onError: ({ path, error }) => {
+        console.error(
+          `❌ tRPC failed on ${path ?? "<no-path>"}: ${error.message}`,
+          "\nError stack:",
+          error.stack,
+          "\nError cause:",
+          error.cause,
+        );
+      },
+    });
+
+    // Add CORS headers to the response
+    const headers = new Headers(response.headers);
+    headers.set("Access-Control-Allow-Origin", "*");
+    headers.set(
+      "Access-Control-Allow-Methods",
+      "GET, POST, PUT, DELETE, OPTIONS",
+    );
+    headers.set(
+      "Access-Control-Allow-Headers",
+      "X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization",
+    );
+
+    return new Response(response.body, {
+      status: response.status,
+      statusText: response.statusText,
+      headers,
+    });
+  } catch (error) {
+    console.error("Error in TRPC handler:", error);
+    return new Response(JSON.stringify({ error: "Internal Server Error" }), {
+      status: 500,
+      headers: {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+        "Access-Control-Allow-Headers":
+          "X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization",
+      },
+    });
+  }
 };
 
 export const GET = handler;
 export const POST = handler;
-export const OPTIONS = (req: NextRequest) => {
-  const origin = req.headers.get("origin");
-  
-  return new Response(null, {
-    status: 204,
-    headers: {
-      "Access-Control-Allow-Origin": origin || "*",
-      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-      "Access-Control-Allow-Headers": [
-        "Content-Type",
-        "Authorization",
-        "x-trpc-source"
-      ].join(", "),
-      "Access-Control-Allow-Credentials": "true",
-      "Access-Control-Max-Age": "86400",
-    },
-  });
-};
+export const OPTIONS = handler;

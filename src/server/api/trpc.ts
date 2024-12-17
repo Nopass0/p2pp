@@ -1,9 +1,11 @@
+// src/server/api/trpc.ts
 import { initTRPC, TRPCError } from "@trpc/server";
 import superjson from "superjson";
 import { ZodError } from "zod";
+import { type CreateNextContextOptions } from "@trpc/server/adapters/next";
 import { db } from "@/server/db";
 
-export interface CreateContextOptions {
+interface CreateContextOptions {
   headers: Headers;
 }
 
@@ -11,20 +13,15 @@ export const createTRPCContext = async (opts: CreateContextOptions) => {
   try {
     const token = opts.headers.get("authorization")?.replace("Bearer ", "");
     console.log("Context token:", token);
-
     let user = null;
+
     if (token) {
-      const session = await db.session.findFirst({
-        where: {
-          token,
-          expiresAt: { gt: new Date() },
-        },
-        include: {
-          user: true,
-        },
+      const session = await db.session.findUnique({
+        where: { token },
+        include: { user: true },
       });
 
-      if (session?.user) {
+      if (session && session.expiresAt > new Date()) {
         user = session.user;
         console.log("Context user:", user);
       }
@@ -46,7 +43,7 @@ export const createTRPCContext = async (opts: CreateContextOptions) => {
 };
 
 const t = initTRPC.context<typeof createTRPCContext>().create({
-  transformer: superjson,
+  transformer: undefined, // Отключаем трансформер для всех процедур
   errorFormatter({ shape, error }) {
     console.log("TRPC Error:", error);
     return {
@@ -60,14 +57,16 @@ const t = initTRPC.context<typeof createTRPCContext>().create({
   },
 });
 
-export const createTRPCRouter = t.router;
-export const publicProcedure = t.procedure;
+// Создаем базовый роутер без трансформации
+const baseRouter = t.router;
+const baseProcedure = t.procedure;
 
+// Middleware
 const enforceUserIsAuthed = t.middleware(({ ctx, next }) => {
   if (!ctx.user) {
-    throw new TRPCError({ 
+    throw new TRPCError({
       code: "UNAUTHORIZED",
-      message: "Not authenticated" 
+      message: "Not authenticated",
     });
   }
   return next({
@@ -80,19 +79,17 @@ const enforceUserIsAuthed = t.middleware(({ ctx, next }) => {
 
 const enforceUserIsAdmin = t.middleware(({ ctx, next }) => {
   if (!ctx.user) {
-    throw new TRPCError({ 
+    throw new TRPCError({
       code: "UNAUTHORIZED",
-      message: "Not authenticated" 
+      message: "Not authenticated",
     });
   }
-  
   if (!ctx.user.isAdmin) {
-    throw new TRPCError({ 
-      code: "UNAUTHORIZED",
-      message: "Not authorized" 
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "Not authorized",
     });
   }
-
   return next({
     ctx: {
       ...ctx,
@@ -101,5 +98,8 @@ const enforceUserIsAdmin = t.middleware(({ ctx, next }) => {
   });
 });
 
-export const protectedProcedure = t.procedure.use(enforceUserIsAuthed);
-export const adminProcedure = protectedProcedure.use(enforceUserIsAdmin);
+// Export router and procedures
+export const createTRPCRouter = baseRouter;
+export const publicProcedure = baseProcedure;
+export const protectedProcedure = baseProcedure.use(enforceUserIsAuthed);
+export const adminProcedure = baseProcedure.use(enforceUserIsAdmin);
