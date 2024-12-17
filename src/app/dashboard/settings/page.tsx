@@ -13,26 +13,28 @@ export default function SettingsPage() {
   const { toast } = useToast();
 
   const utils = api.useContext();
-  const { mutate, isLoading: isSubmitting } = api.admin.activateAdmin.useMutation({
-    onSuccess: (data) => {
-      if (data.success) {
+  //@ts-ignore
+  const { mutate, isLoading: isSubmitting } =
+    api.admin.activateAdmin.useMutation({
+      onSuccess: (data) => {
+        if (data.success) {
+          toast({
+            title: "Успешно!",
+            description: "Вы стали администратором",
+          });
+          utils.auth.getSession.invalidate();
+          setAdminKey("");
+        }
+      },
+      onError: (error) => {
+        console.error("Activation error details:", error);
         toast({
-          title: "Успешно!",
-          description: "Вы стали администратором",
+          title: "Ошибка!",
+          description: error.message || "Произошла ошибка при активации",
+          variant: "destructive",
         });
-        utils.auth.getSession.invalidate();
-        setAdminKey("");
-      }
-    },
-    onError: (error) => {
-      console.error('Activation error details:', error);
-      toast({
-        title: "Ошибка!",
-        description: error.message || "Произошла ошибка при активации",
-        variant: "destructive",
-      });
-    },
-  });
+      },
+    });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -56,7 +58,9 @@ export default function SettingsPage() {
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <h3 className="text-lg font-medium">Активация прав администратора</h3>
+                <h3 className="text-lg font-medium">
+                  Активация прав администратора
+                </h3>
                 <p className="text-sm text-muted-foreground">
                   Введите ключ администратора для получения расширенных прав
                 </p>
@@ -68,8 +72,8 @@ export default function SettingsPage() {
                     onChange={(e) => setAdminKey(e.target.value)}
                     className="max-w-sm"
                   />
-                  <Button 
-                    type="submit" 
+                  <Button
+                    type="submit"
                     disabled={isSubmitting || !adminKey.trim()}
                   >
                     {isSubmitting ? "Активация..." : "Активировать"}

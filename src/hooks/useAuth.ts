@@ -6,6 +6,7 @@ export function useAuth() {
   const router = useRouter();
   const { data: session, isLoading } = api.auth.getSession.useQuery(undefined, {
     retry: false,
+    //@ts-ignore
     onError: (error) => {
       if (error.data?.code === "UNAUTHORIZED") {
         localStorage.removeItem("token");

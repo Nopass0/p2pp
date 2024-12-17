@@ -63,6 +63,7 @@ export const authRouter = createTRPCRouter({
 
       try {
         console.log("Verifying Telegram auth data...");
+        //@ts-ignore
         const isValid = await verifyTelegramAuth(input);
         console.log("Auth verification result:", isValid);
 

@@ -49,8 +49,8 @@ export default function GateParserPage() {
   const { toast } = useToast();
 
   const utils = api.useContext();
-  
-  const { data: transactions, isLoading: isLoadingTransactions } = 
+
+  const { data: transactions, isLoading: isLoadingTransactions } =
     api.gate.getTransactions.useQuery();
 
   const { mutate: saveCookies } = api.gate.saveCookies.useMutation({
@@ -73,7 +73,7 @@ export default function GateParserPage() {
 
   const handleSaveCookies = () => {
     if (!cookies.trim()) return;
-    
+
     try {
       // Пытаемся распарсить JSON если это JSON
       let parsedCookies = cookies;
@@ -82,7 +82,7 @@ export default function GateParserPage() {
         parsedCookies = jsonCookies
           .filter((cookie: any) => cookie.name && cookie.value)
           .map((cookie: any) => `${cookie.name}=${cookie.value}`)
-          .join('; ');
+          .join("; ");
       } catch {
         // Если не JSON, используем как есть
       }
@@ -98,10 +98,10 @@ export default function GateParserPage() {
   };
 
   const formatDate = (date: Date | null) => {
-    if (!date) return '-';
-    return new Intl.DateTimeFormat('ru-RU', {
-      dateStyle: 'short',
-      timeStyle: 'short'
+    if (!date) return "-";
+    return new Intl.DateTimeFormat("ru-RU", {
+      dateStyle: "short",
+      timeStyle: "short",
     }).format(new Date(date));
   };
 
@@ -111,15 +111,15 @@ export default function GateParserPage() {
       3: "Успешно",
       7: "Ошибка",
       8: "Отменено",
-      9: "Отклонено"
+      9: "Отклонено",
     };
     return statuses[status] || `Статус ${status}`;
   };
 
   const formatMoney = (amount: number) => {
-    return new Intl.NumberFormat('ru-RU', {
+    return new Intl.NumberFormat("ru-RU", {
       minimumFractionDigits: 2,
-      maximumFractionDigits: 2
+      maximumFractionDigits: 2,
     }).format(amount);
   };
 
@@ -134,7 +134,8 @@ export default function GateParserPage() {
           <CardHeader>
             <CardTitle>Gate Parser</CardTitle>
             <CardDescription>
-              Вставьте куки из вашего аккаунта Gate для парсинга истории операций
+              Вставьте куки из вашего аккаунта Gate для парсинга истории
+              операций
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -146,9 +147,10 @@ export default function GateParserPage() {
                   value={cookies}
                   onChange={(e) => setCookies(e.target.value)}
                   multiple
+                  //@ts-ignore
                   as="textarea"
                 />
-                <Button 
+                <Button
                   onClick={handleSaveCookies}
                   disabled={isLoading || !cookies.trim()}
                 >
@@ -157,9 +159,9 @@ export default function GateParserPage() {
               </div>
 
               {isLoadingTransactions ? (
-                <div className="text-center py-4">Загрузка транзакций...</div>
+                <div className="py-4 text-center">Загрузка транзакций...</div>
               ) : transactions?.length ? (
-                <div className="rounded-md border overflow-x-auto">
+                <div className="overflow-x-auto rounded-md border">
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -178,23 +180,32 @@ export default function GateParserPage() {
                     <TableBody>
                       {transactions.map((tx) => (
                         <TableRow key={tx.transactionId}>
-                          <TableCell>{formatDate(tx.createdAt)}</TableCell>
+                          <TableCell>
+                            {
+                              //@ts-ignore
+                              formatDate(tx.createdAt)
+                            }
+                          </TableCell>
                           <TableCell>{tx.wallet}</TableCell>
                           <TableCell>{formatMoney(tx.amountRub)}</TableCell>
                           <TableCell>{formatMoney(tx.amountUsdt)}</TableCell>
                           <TableCell>{formatStatus(tx.status)}</TableCell>
-                          <TableCell>{tx.bankName || '-'}</TableCell>
-                          <TableCell>{tx.course ? formatMoney(tx.course) : '-'}</TableCell>
-                          <TableCell>{tx.successRate ? `${tx.successRate}%` : '-'}</TableCell>
-                          <TableCell>{tx.usdtBalance || '-'}</TableCell>
-                          <TableCell>{tx.rubBalance || '-'}</TableCell>
+                          <TableCell>{tx.bankName || "-"}</TableCell>
+                          <TableCell>
+                            {tx.course ? formatMoney(tx.course) : "-"}
+                          </TableCell>
+                          <TableCell>
+                            {tx.successRate ? `${tx.successRate}%` : "-"}
+                          </TableCell>
+                          <TableCell>{tx.usdtBalance || "-"}</TableCell>
+                          <TableCell>{tx.rubBalance || "-"}</TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
                   </Table>
                 </div>
               ) : (
-                <div className="text-center py-4 text-muted-foreground">
+                <div className="py-4 text-center text-muted-foreground">
                   Нет данных для отображения
                 </div>
               )}

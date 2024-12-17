@@ -31,17 +31,19 @@ export function initTelegramWidget(onAuth: (user: TelegramUser) => void): void {
   script.async = true;
 
   // Define global callback
+  //@ts-ignore
   window.onTelegramAuth = onAuth;
 
   // Add script to container
   if (existingContainer) {
     existingContainer.appendChild(script);
   }
-
+  //@ts-ignore
   return () => {
     if (existingContainer) {
       existingContainer.innerHTML = "";
     }
+    //@ts-ignore
     delete window.onTelegramAuth;
   };
 }

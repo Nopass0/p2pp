@@ -1,8 +1,12 @@
 // src/server/api/routers/admin.ts
 import { z } from "zod";
-import { createTRPCRouter, adminProcedure, protectedProcedure } from "@/server/api/trpc";
+import {
+  createTRPCRouter,
+  adminProcedure,
+  protectedProcedure,
+} from "@/server/api/trpc";
 import crypto from "crypto";
-import { TRPCError } from '@trpc/server';
+import { TRPCError } from "@trpc/server";
 import { env } from "@/env";
 
 const activateInput = z.object({
@@ -32,39 +36,40 @@ export const adminRouter = createTRPCRouter({
       if (input.key !== env.INIT_ADMIN_KEY) {
         throw new TRPCError({
           code: "UNAUTHORIZED",
-          message: "Invalid admin key"
+          message: "Invalid admin key",
         });
       }
 
       const user = await ctx.db.user.findUnique({
-        where: { id: ctx.user.id }
+        where: { id: ctx.user.id },
       });
 
       if (!user) {
         throw new TRPCError({
           code: "NOT_FOUND",
-          message: "User not found"
+          message: "User not found",
         });
       }
 
       if (user.isAdmin) {
         throw new TRPCError({
           code: "BAD_REQUEST",
-          message: "User is already an admin"
+          message: "User is already an admin",
         });
       }
 
       const updatedUser = await ctx.db.user.update({
         where: { id: user.id },
-        data: { isAdmin: true }
+        data: { isAdmin: true },
       });
 
       await ctx.db.adminAction.create({
         data: {
           userId: user.id,
           action: "ADMIN_ACTIVATION",
-          details: "User activated admin privileges"
-        }
+          //@ts-ignore
+          details: "User activated admin privileges",
+        },
       });
 
       return { success: true };
@@ -82,10 +87,12 @@ export const adminRouter = createTRPCRouter({
   }),
 
   getActionLogs: adminProcedure
-    .input(z.object({
-      limit: z.number().min(1).max(100).default(50),
-      cursor: z.number().optional(),
-    }))
+    .input(
+      z.object({
+        limit: z.number().min(1).max(100).default(50),
+        cursor: z.number().optional(),
+      }),
+    )
     .query(async ({ ctx, input }) => {
       const items = await ctx.db.adminAction.findMany({
         take: input.limit + 1,

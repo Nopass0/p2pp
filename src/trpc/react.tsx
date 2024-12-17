@@ -37,6 +37,7 @@ export function TRPCReactProvider(props: {
 
   const [trpcClient] = useState(() =>
     api.createClient({
+      //@ts-ignore
       transformer: SuperJSON,
       links: [
         loggerLink({

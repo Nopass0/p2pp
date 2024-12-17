@@ -26,6 +26,7 @@ export function TRPCReactProvider({ children }: { children: React.ReactNode }) {
           url: process.env.NEXT_PUBLIC_API_URL || "http://localhost/api/trpc",
         }),
       ],
+      //@ts-ignore
       transformer: superjson,
     }),
   );

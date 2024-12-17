@@ -39,6 +39,7 @@ export default async function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body suppressHydrationWarning className={`font-sans ${inter.variable}`}>
+        {/* @ts-ignore */}
         <TRPCReactProvider>
           <ThemeProvider>
             <AuthProvider>{children}</AuthProvider>

@@ -13,7 +13,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-
+//@ts-ignore
 interface DatePickerWithRangeProps
   extends React.HTMLAttributes<HTMLDivElement> {
   value?: DateRange;

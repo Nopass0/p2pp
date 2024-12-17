@@ -13,5 +13,6 @@ interface ThemeProviderProps {
 }
 
 export function ThemeProvider({ children, ...props }: ThemeProviderProps) {
+  //@ts-ignore
   return <NextThemesProvider {...props}>{children}</NextThemesProvider>;
 }

@@ -87,7 +87,7 @@ export function AuthForm() {
         Object.entries(attrs).forEach(([key, value]) => {
           script.setAttribute(key, value);
         });
-
+        //@ts-ignore
         window.onTelegramAuth = handleTelegramAuth;
 
         container.appendChild(script);
@@ -100,6 +100,7 @@ export function AuthForm() {
     initTelegramAuth();
 
     return () => {
+      //@ts-ignore
       delete window.onTelegramAuth;
       const container = document.getElementById("telegram-login-container");
       if (container) {

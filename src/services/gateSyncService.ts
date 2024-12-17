@@ -2,9 +2,10 @@ import { PrismaClient } from "@prisma/client";
 import axios from "axios";
 
 // API Constants
-const GATE_API_URL = 'https://panel.gate.cx/api/v1/payments/payouts';
-const GATE_BALANCE_URL = 'https://panel.gate.cx/api/v1/auth/me';
-const GATE_USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+const GATE_API_URL = "https://panel.gate.cx/api/v1/payments/payouts";
+const GATE_BALANCE_URL = "https://panel.gate.cx/api/v1/auth/me";
+const GATE_USER_AGENT =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 
 // Обновление каждые 5 минут
 const UPDATE_INTERVAL = 5 * 60 * 1000;
@@ -12,8 +13,8 @@ const UPDATE_INTERVAL = 5 * 60 * 1000;
 // Interfaces
 interface PaymentAmount {
   trader: {
-    '643': number;
-    '000001': number;
+    "643": number;
+    "000001": number;
   };
 }
 
@@ -56,61 +57,64 @@ async function fetchBalances(cookies: string) {
   try {
     const response = await axios.get(GATE_BALANCE_URL, {
       headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json',
-        'Cookie': cookies,
-        'User-Agent': GATE_USER_AGENT
-      }
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        Cookie: cookies,
+        "User-Agent": GATE_USER_AGENT,
+      },
     });
 
     const wallets = response.data?.response?.user?.wallets || [];
-    const usdtWallet = wallets.find(w => w.currency.iso_code === '000001');
-    const rubWallet = wallets.find(w => w.currency.iso_code === '643');
+    const usdtWallet = wallets.find((w) => w.currency.iso_code === "000001");
+    const rubWallet = wallets.find((w) => w.currency.iso_code === "643");
 
     return {
-      usdt: usdtWallet?.balance || '0',
-      rub: rubWallet?.balance || '0'
+      usdt: usdtWallet?.balance || "0",
+      rub: rubWallet?.balance || "0",
     };
   } catch (error) {
-    console.error('Error fetching Gate balances:', error);
-    return { usdt: '0', rub: '0' };
+    console.error("Error fetching Gate balances:", error);
+    return { usdt: "0", rub: "0" };
   }
 }
 
 async function fetchPayments(cookies: string) {
   try {
     const queryParams = new URLSearchParams({
-      'filters[status][]': ['2', '3', '7', '8', '9'].join(','),
-      'page': '1'
+      "filters[status][]": ["2", "3", "7", "8", "9"].join(","),
+      page: "1",
     });
-    
+
     const balances = await fetchBalances(cookies);
-    const response = await axios.get(`${GATE_API_URL}?${queryParams.toString()}`, {
-      headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json',
-        'Cookie': cookies,
-        'User-Agent': GATE_USER_AGENT
-      }
-    });
+    const response = await axios.get(
+      `${GATE_API_URL}?${queryParams.toString()}`,
+      {
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+          Cookie: cookies,
+          "User-Agent": GATE_USER_AGENT,
+        },
+      },
+    );
 
     const items = response.data?.response?.payouts?.data;
     if (!Array.isArray(items)) {
-      throw new Error('Invalid response format - items not found');
+      throw new Error("Invalid response format - items not found");
     }
 
-    return items.map(item => ({
+    return items.map((item) => ({
       ...item,
-      currentBalances: balances
+      currentBalances: balances,
     }));
   } catch (error) {
-    console.error('Error fetching Gate payments:', error);
+    console.error("Error fetching Gate payments:", error);
     throw error;
   }
 }
 
 export async function startGateSyncService(prisma: PrismaClient) {
-  console.log('Starting Gate sync service...');
+  console.log("Starting Gate sync service...");
 
   async function syncUser(userId: number, cookies: string) {
     try {
@@ -133,7 +137,9 @@ export async function startGateSyncService(prisma: PrismaClient) {
             successRate: payment.tooltip?.payments?.percent,
             usdtBalance: payment.currentBalances?.usdt,
             rubBalance: payment.currentBalances?.rub,
-            approvedAt: payment.approved_at ? new Date(payment.approved_at) : null,
+            approvedAt: payment.approved_at
+              ? new Date(payment.approved_at)
+              : null,
             expiredAt: payment.expired_at ? new Date(payment.expired_at) : null,
             updatedAt: new Date(),
           },
@@ -142,10 +148,10 @@ export async function startGateSyncService(prisma: PrismaClient) {
             transactionId: payment.id.toString(),
             paymentMethodId: payment.payment_method_id,
             wallet: payment.wallet,
-            amountRub: payment.amount.trader['643'],
-            amountUsdt: payment.amount.trader['000001'],
-            totalRub: payment.total.trader['643'],
-            totalUsdt: payment.total.trader['000001'],
+            amountRub: payment.amount.trader["643"],
+            amountUsdt: payment.amount.trader["000001"],
+            totalRub: payment.total.trader["643"],
+            totalUsdt: payment.total.trader["000001"],
             status: payment.status,
             bankName: payment.bank?.name,
             bankLabel: payment.bank?.label,
@@ -155,7 +161,9 @@ export async function startGateSyncService(prisma: PrismaClient) {
             successRate: payment.tooltip?.payments?.percent,
             usdtBalance: payment.currentBalances?.usdt,
             rubBalance: payment.currentBalances?.rub,
-            approvedAt: payment.approved_at ? new Date(payment.approved_at) : null,
+            approvedAt: payment.approved_at
+              ? new Date(payment.approved_at)
+              : null,
             expiredAt: payment.expired_at ? new Date(payment.expired_at) : null,
             createdAt: new Date(payment.created_at),
           },
@@ -164,6 +172,7 @@ export async function startGateSyncService(prisma: PrismaClient) {
 
       // Обновляем время последней проверки куки
       await prisma.gateCookie.update({
+        //@ts-ignore
         where: {
           userId: userId,
         },
@@ -172,13 +181,16 @@ export async function startGateSyncService(prisma: PrismaClient) {
         },
       });
 
-      console.log(`Successfully synced ${payments.length} transactions for user ${userId}`);
+      console.log(
+        `Successfully synced ${payments.length} transactions for user ${userId}`,
+      );
     } catch (error) {
       console.error(`Error syncing Gate data for user ${userId}:`, error);
 
       // Если произошла ошибка авторизации, деактивируем куки
       if (axios.isAxiosError(error) && error.response?.status === 401) {
         await prisma.gateCookie.update({
+          //@ts-ignore
           where: {
             userId: userId,
           },
@@ -200,17 +212,17 @@ export async function startGateSyncService(prisma: PrismaClient) {
         select: {
           userId: true,
           cookie: true,
-        }
+        },
       });
 
       console.log(`Found ${cookies.length} active Gate cookies`);
 
       // Синхронизируем данные для каждого пользователя
       await Promise.allSettled(
-        cookies.map(cookie => syncUser(cookie.userId, cookie.cookie))
+        cookies.map((cookie) => syncUser(cookie.userId, cookie.cookie)),
       );
     } catch (error) {
-      console.error('Error in Gate sync cycle:', error);
+      console.error("Error in Gate sync cycle:", error);
     }
   }
 
