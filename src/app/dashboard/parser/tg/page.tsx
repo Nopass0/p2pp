@@ -171,7 +171,8 @@ export default function TelegramWalletPage() {
           title: "Успех",
           description: "Токен успешно сохранен",
         });
-        void utils.user.me.invalidate();
+        // Получаем utils из api
+        void api.useContext().user.me.invalidate();
         setNewToken("");
         setShowTokenUpdate(false);
       },
