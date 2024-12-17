@@ -6,6 +6,7 @@ import axios from "axios";
 import { sendTelegramMessage } from "@/services/telegramBotService";
 import { env } from "@/env";
 import { type PrismaClient } from "@prisma/client";
+import { db } from "@/server/db";
 
 export const walletRouter = createTRPCRouter({
   getP2PTransactions: protectedProcedure
@@ -19,6 +20,8 @@ export const walletRouter = createTRPCRouter({
       try {
         // Изменен фильтр для получения только p2p транзакций
         //@tg-ignore
+        await syncTelegramTransactionsForUser(ctx.db, updatedUser.id);
+
         const transactions = await ctx.db.telegramTransaction.findMany({
           where: {
             userId: ctx.user.id,
@@ -71,7 +74,7 @@ export const walletRouter = createTRPCRouter({
           throw new Error("Invalid token");
         }
 
-        const updatedUser = await ctx.db.user.update({
+        const updatedUser = await db.user.update({
           where: { id: ctx.user.id },
           //@tg-ignore
           data: { tgAuthToken: input.token },
