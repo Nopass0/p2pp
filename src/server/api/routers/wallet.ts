@@ -158,35 +158,53 @@ export const walletRouter = createTRPCRouter({
     )
     .mutation(async ({ ctx, input }) => {
       try {
-        const cleanToken = input.token.replace(/[\r\n]+/g, "").trim();
-        console.log("Setting new token, length:", cleanToken.length);
+        // 1. Сначала очищаем токен от всех пробелов и переносов строк
+        const cleanToken = input.token.replace(/\s+/g, "").trim();
+        console.log("Clean token length:", cleanToken.length);
 
-        // Проверяем токен
+        // 2. Пробуем сделать тестовый запрос с токеном
         try {
-          const checkResponse = await axios.get(
+          const testResponse = await axios.get(
             "https://walletbot.me/api/v1/transactions/",
             {
               params: { limit: 1 },
-              headers: { Authorization: cleanToken },
-              timeout: 5000,
+              headers: {
+                Authorization: cleanToken,
+                Accept: "application/json",
+                "Content-Type": "application/json",
+              },
+              validateStatus: (status) => status < 500, // Принимаем любой статус < 500
             },
           );
 
-          if (!checkResponse.data) {
-            console.log("Token validation failed: no data in response");
-            throw new Error("Invalid token");
+          // 3. Проверяем ответ
+          if (testResponse.status === 401) {
+            console.log("Token validation failed: 401 Unauthorized");
+            throw new Error("Token validation failed: unauthorized");
           }
-        } catch (checkError) {
-          console.error("Token validation failed:", checkError);
-          throw new Error(
-            axios.isAxiosError(checkError) &&
-            checkError.response?.status === 401
-              ? "Invalid token"
-              : "Failed to validate token",
-          );
+
+          if (!testResponse.data) {
+            console.log("Token validation failed: no data in response");
+            throw new Error("Token validation failed: no data");
+          }
+        } catch (apiError) {
+          console.error("API test request failed:", apiError);
+
+          // Более детальная обработка ошибок API
+          if (axios.isAxiosError(apiError)) {
+            if (apiError.response?.status === 401) {
+              throw new Error("Invalid or expired token");
+            }
+            if (apiError.code === "ECONNABORTED") {
+              throw new Error("Connection timeout. Please try again");
+            }
+            throw new Error(`API error: ${apiError.message}`);
+          }
+
+          throw new Error("Failed to validate token");
         }
 
-        // Сохраняем токен
+        // 4. Если дошли до сюда, токен валидный - сохраняем его
         const updatedUser = await ctx.db.user.update({
           where: { id: ctx.user.id },
           data: { tgAuthToken: cleanToken },
@@ -196,19 +214,24 @@ export const walletRouter = createTRPCRouter({
           },
         });
 
+        // 5. Проверяем успешность сохранения
         if (!updatedUser.tgAuthToken) {
-          throw new Error("Token was not saved");
+          console.error("Token was not saved");
+          throw new Error("Failed to save token");
         }
 
-        console.log("Token saved successfully");
+        console.log("Token successfully saved for user:", ctx.user.id);
 
         return {
           success: true,
-          message: "Telegram auth token set successfully",
+          message: "Token successfully saved",
         };
       } catch (error) {
         console.error("Token setting error:", error);
-        throw error;
+        // Выбрасываем ошибку наверх для обработки в trpc
+        throw error instanceof Error
+          ? error
+          : new Error("Unknown error while setting token");
       }
     }),
 });

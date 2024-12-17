@@ -168,22 +168,44 @@ export default function TelegramWalletPage() {
     api.wallet.setTelegramAuthToken.useMutation({
       onSuccess: () => {
         toast({
-          title: "Токен обновлен",
-          description: "Токен успешно обновлен",
+          title: "Успех",
+          description: "Токен успешно сохранен",
         });
-        void refetchTransactions();
+        void utils.user.me.invalidate();
         setNewToken("");
-        setIsTokenValid(true);
         setShowTokenUpdate(false);
       },
-      onError: (error: TRPCClientErrorLike<any>) => {
+      onError: (error) => {
+        console.error("Token setting error:", error);
         toast({
           title: "Ошибка",
-          description: error.message,
+          description: error.message || "Не удалось установить токен",
           variant: "destructive",
         });
       },
     });
+
+  const handleSetToken = async () => {
+    if (!newToken.trim()) {
+      toast({
+        title: "Ошибка",
+        description: "Введите токен",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Очищаем токен от пробелов перед отправкой
+    const cleanToken = newToken.replace(/\s+/g, "").trim();
+
+    try {
+      await setTelegramAuthTokenMutation.mutateAsync({
+        token: cleanToken,
+      });
+    } catch (error) {
+      console.error("Error in handleSetToken:", error);
+    }
+  };
 
   // Memoized request parameters
   const queryInput = useMemo(
@@ -341,9 +363,27 @@ export default function TelegramWalletPage() {
     //@ts-ignore
   }, [user?.tgAuthToken]);
 
-  const handleSetToken = useCallback(async () => {
-    await setTelegramAuthTokenMutation.mutateAsync({ token: newToken });
-  }, [newToken, setTelegramAuthTokenMutation]);
+  const handleSetToken = async () => {
+    if (!newToken.trim()) {
+      toast({
+        title: "Ошибка",
+        description: "Введите токен",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Очищаем токен от пробелов перед отправкой
+    const cleanToken = newToken.replace(/\s+/g, "").trim();
+
+    try {
+      await setTelegramAuthTokenMutation.mutateAsync({
+        token: cleanToken,
+      });
+    } catch (error) {
+      console.error("Error in handleSetToken:", error);
+    }
+  };
 
   // Components for various states
   if (isUserLoading) {
