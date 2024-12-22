@@ -25,7 +25,12 @@ export default async function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body suppressHydrationWarning className={`font-sans ${inter.variable}`}>
         {/* @ts-ignore */}
-        <TRPCReactProvider>
+        <TRPCReactProvider
+          //@ts-ignore
+          attribute="data-theme"
+          enableSystem
+          disableTransitionOnChange={false}
+        >
           <ThemeProvider>
             <AuthProvider>{children}</AuthProvider>
           </ThemeProvider>

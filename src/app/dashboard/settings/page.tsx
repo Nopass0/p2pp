@@ -1,18 +1,33 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { api } from "@/trpc/react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import { motion } from "framer-motion";
+import { DeviceTokens } from "./DeviceTokens";
+import { GeminiTokenCard } from "./GeminiToken";
 
 export default function SettingsPage() {
   const [adminKey, setAdminKey] = useState("");
   const { toast } = useToast();
-
   const utils = api.useContext();
+  const [user, setUser] = useState<any>(null);
+
+  //on load get user
+  useEffect(() => {
+    //@ts-ignore
+
+    const getUser = utils.user.me.fetch();
+
+    getUser.then((data) => {
+      //@ts-ignore
+      setUser(data.data);
+    });
+  }, []);
+
   //@ts-ignore
   const { mutate, isLoading: isSubmitting } =
     api.admin.activateAdmin.useMutation({
@@ -40,7 +55,6 @@ export default function SettingsPage() {
     e.preventDefault();
     const trimmedKey = adminKey.trim();
     if (!trimmedKey) return;
-
     mutate({ key: trimmedKey });
   };
 
@@ -50,39 +64,44 @@ export default function SettingsPage() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
+        className="space-y-6"
       >
-        <Card>
-          <CardHeader>
-            <CardTitle>Настройки</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <h3 className="text-lg font-medium">
-                  Активация прав администратора
-                </h3>
-                <p className="text-sm text-muted-foreground">
-                  Введите ключ администратора для получения расширенных прав
-                </p>
-                <div className="flex gap-2">
-                  <Input
-                    type="text"
-                    placeholder="Введите ключ"
-                    value={adminKey}
-                    onChange={(e) => setAdminKey(e.target.value)}
-                    className="max-w-sm"
-                  />
-                  <Button
-                    type="submit"
-                    disabled={isSubmitting || !adminKey.trim()}
-                  >
-                    {isSubmitting ? "Активация..." : "Активировать"}
-                  </Button>
+        {user && !user.isAdmin && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Настройки</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="space-y-2">
+                  <h3 className="text-lg font-medium">
+                    Активация прав администратора
+                  </h3>
+                  <p className="text-sm text-muted-foreground">
+                    Введите ключ администратора для получения расширенных прав
+                  </p>
+                  <div className="flex gap-2">
+                    <Input
+                      type="text"
+                      placeholder="Введите ключ"
+                      value={adminKey}
+                      onChange={(e) => setAdminKey(e.target.value)}
+                      className="max-w-sm"
+                    />
+                    <Button
+                      type="submit"
+                      disabled={isSubmitting || !adminKey.trim()}
+                    >
+                      {isSubmitting ? "Активация..." : "Активировать"}
+                    </Button>
+                  </div>
                 </div>
-              </div>
-            </form>
-          </CardContent>
-        </Card>
+              </form>
+            </CardContent>
+          </Card>
+        )}
+        <GeminiTokenCard />
+        <DeviceTokens />
       </motion.div>
     </div>
   );
