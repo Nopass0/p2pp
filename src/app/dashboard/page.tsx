@@ -5,9 +5,10 @@ import { getServerAuthSession } from "@/server/auth";
 export default async function DashboardPage() {
   const session = await getServerAuthSession();
 
-  // if (!session) {
-  //   redirect("/auth/signin");
-  // }
+  if (!session?.user) {
+    // Можно редиректить или показать заглушку
+    return <div>Please log in</div>;
+  }
 
   const { user } = session;
 
