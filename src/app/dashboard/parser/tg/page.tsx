@@ -67,6 +67,15 @@ import {
 import { type P2PTransaction } from "@prisma/client";
 import type { UseTRPCQueryResult } from "@trpc/react-query/shared";
 import type { TRPCClientErrorLike } from "@trpc/client";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+
 //@ts-ignore
 import type { DefaultErrorShape } from "@trpc/server";
 import type { inferRouterOutputs } from "@trpc/server";
@@ -166,6 +175,26 @@ export default function P2PTransactionsPage() {
     }),
     [dateRange.from, dateRange.to],
   );
+
+  const [isTokenDialogOpen, setIsTokenDialogOpen] = useState(false);
+  const [newToken, setNewToken] = useState("");
+
+  const updateTokenMutation = api.wallet.setTelegramAuthToken.useMutation({
+    onSuccess: () => {
+      toast({
+        title: "Успешно",
+        description: "Токен успешно обновлен",
+      });
+      setIsTokenDialogOpen(false);
+    },
+    onError: (error) => {
+      toast({
+        title: "Ошибка",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
 
   const {
     data: transactionsData,
@@ -409,10 +438,66 @@ export default function P2PTransactionsPage() {
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-[300px]"
               />
-              <Button onClick={handleRefresh}>
-                <RefreshCw className="mr-2 h-4 w-4" />
-                Обновить
-              </Button>
+              <Dialog
+                open={isTokenDialogOpen}
+                onOpenChange={setIsTokenDialogOpen}
+              >
+                <DialogTrigger asChild>
+                  <Button>
+                    <RefreshCw className="mr-2 h-4 w-4" />
+                    Обновить
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Обновление токена</DialogTitle>
+                    <DialogDescription>
+                      Введите новый токен для обновления данных
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="grid gap-4 py-4">
+                    <div className="grid gap-2">
+                      <Input
+                        placeholder="Введите новый токен..."
+                        value={newToken}
+                        onChange={(e) => setNewToken(e.target.value)}
+                      />
+                    </div>
+                    <div className="flex justify-end gap-2">
+                      <Button
+                        variant="outline"
+                        onClick={() => setIsTokenDialogOpen(false)}
+                      >
+                        Отмена
+                      </Button>
+                      <Button
+                        onClick={async () => {
+                          try {
+                            await updateTokenMutation.mutateAsync({
+                              token: newToken,
+                            });
+                            await refetchTransactions();
+                          } catch (error) {
+                            console.error("Failed to update token:", error);
+                          }
+                        }}
+                        //@ts-ignore
+                        disabled={!newToken || updateTokenMutation.isLoading}
+                      >
+                        {/* @ts-ignore */}
+                        {updateTokenMutation.isLoading ? (
+                          <>
+                            <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                            Обновление...
+                          </>
+                        ) : (
+                          "Сохранить"
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
               {/* @ts-ignore */}
 
               <DatePickerWithRange value={dateRange} onChange={setDateRange} />
