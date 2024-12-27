@@ -1,6 +1,10 @@
 // src/server/api/routers/user.ts
 import { z } from "zod";
-import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
+import {
+  createTRPCRouter,
+  protectedProcedure,
+  adminProcedure,
+} from "@/server/api/trpc";
 import { TRPCError } from "@trpc/server";
 import { type TronTransaction, type TronWallet } from "@prisma/client";
 
@@ -15,6 +19,25 @@ export const userRouter = createTRPCRouter({
     });
     console.log("user.me result:", user); // Log the result
     return user;
+  }),
+
+  getAllUsers: adminProcedure.query(async ({ ctx }) => {
+    try {
+      const users = await ctx.db.user.findMany({
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          telegramId: true,
+          isAdmin: true,
+          createdAt: true,
+        },
+        orderBy: { createdAt: "desc" },
+      });
+      return users;
+    } catch (error) {
+      throw new Error("Failed to fetch users");
+    }
   }),
 
   setTronWallet: protectedProcedure

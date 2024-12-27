@@ -20,6 +20,13 @@ const nextConfig = {
             key: "Access-Control-Allow-Headers",
             value: "Content-Type, Authorization, x-trpc-source",
           },
+          {
+            key: "Content-Security-Policy",
+            value:
+              process.env.NODE_ENV === "development"
+                ? "default-src 'self' 'unsafe-inline' 'unsafe-eval' http: https: data: blob: ws:"
+                : "default-src 'self' 'unsafe-inline' 'unsafe-eval' https: data: blob: ws:",
+          },
         ],
       },
     ];

@@ -14,22 +14,11 @@ export default function SettingsPage() {
   const [adminKey, setAdminKey] = useState("");
   const { toast } = useToast();
   const utils = api.useContext();
-  const [user, setUser] = useState<any>(null);
 
-  //on load get user
-  useEffect(() => {
-    //@ts-ignore
-
-    const getUser = utils.user.me.fetch();
-
-    getUser.then((data) => {
-      //@ts-ignore
-      setUser(data.data);
-    });
-  }, []);
-
+  // Используем правильный хук для получения данных пользователя
+  const { data: user, isLoading } = api.user.me.useQuery();
   //@ts-ignore
-  const { mutate, isLoading: isSubmitting } =
+  const { mutate: activateAdmin, isLoading: isSubmitting } =
     api.admin.activateAdmin.useMutation({
       onSuccess: (data) => {
         if (data.success) {
@@ -37,7 +26,7 @@ export default function SettingsPage() {
             title: "Успешно!",
             description: "Вы стали администратором",
           });
-          utils.auth.getSession.invalidate();
+          utils.user.me.invalidate(); // Обновляем данные пользователя
           setAdminKey("");
         }
       },
@@ -55,8 +44,12 @@ export default function SettingsPage() {
     e.preventDefault();
     const trimmedKey = adminKey.trim();
     if (!trimmedKey) return;
-    mutate({ key: trimmedKey });
+    activateAdmin({ key: trimmedKey });
   };
+
+  if (isLoading) {
+    return null; // или показать состояние загрузки
+  }
 
   return (
     <div className="container mx-auto max-w-2xl py-6">
@@ -66,6 +59,7 @@ export default function SettingsPage() {
         transition={{ duration: 0.5 }}
         className="space-y-6"
       >
+        {/* Показываем карточку активации только если пользователь не админ */}
         {user && !user.isAdmin && (
           <Card>
             <CardHeader>

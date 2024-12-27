@@ -7,6 +7,7 @@ import { walletRouter } from "@/server/api/routers/wallet";
 import { createTRPCRouter } from "@/server/api/trpc";
 import { deviceTokenRouter } from "@/server/api/routers/deviceToken";
 import { geminiRouter } from "./routers/gemini";
+import { receiptRouter } from "./routers/receipt";
 
 export const appRouter = createTRPCRouter({
   auth: authRouter,
@@ -16,6 +17,7 @@ export const appRouter = createTRPCRouter({
   wallet: walletRouter,
   deviceToken: deviceTokenRouter,
   gemini: geminiRouter,
+  receipt: receiptRouter,
 });
 
 export type AppRouter = typeof appRouter;

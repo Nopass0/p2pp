@@ -1,6 +1,4 @@
-// src/server/api/trpc.ts
 import { initTRPC, TRPCError } from "@trpc/server";
-import superjson from "superjson";
 import { ZodError } from "zod";
 import { type CreateNextContextOptions } from "@trpc/server/adapters/next";
 import { db } from "@/server/db";
@@ -12,7 +10,6 @@ interface CreateContextOptions {
 export const createTRPCContext = async (opts: CreateContextOptions) => {
   try {
     const token = opts.headers.get("authorization")?.replace("Bearer ", "");
-    console.log("Context token:", token);
     let user = null;
 
     if (token) {
@@ -23,7 +20,6 @@ export const createTRPCContext = async (opts: CreateContextOptions) => {
 
       if (session && session.expiresAt > new Date()) {
         user = session.user;
-        console.log("Context user:", user);
       }
     }
 
@@ -43,9 +39,8 @@ export const createTRPCContext = async (opts: CreateContextOptions) => {
 };
 
 const t = initTRPC.context<typeof createTRPCContext>().create({
-  transformer: undefined, // Отключаем трансформер для всех процедур
+  transformer: undefined,
   errorFormatter({ shape, error }) {
-    console.log("TRPC Error:", error);
     return {
       ...shape,
       data: {
@@ -57,11 +52,7 @@ const t = initTRPC.context<typeof createTRPCContext>().create({
   },
 });
 
-// Создаем базовый роутер без трансформации
-const baseRouter = t.router;
-const baseProcedure = t.procedure;
-
-// Middleware
+// Middleware для проверки аутентификации
 const enforceUserIsAuthed = t.middleware(({ ctx, next }) => {
   if (!ctx.user) {
     throw new TRPCError({
@@ -77,6 +68,7 @@ const enforceUserIsAuthed = t.middleware(({ ctx, next }) => {
   });
 });
 
+// Middleware для проверки прав администратора
 const enforceUserIsAdmin = t.middleware(({ ctx, next }) => {
   if (!ctx.user) {
     throw new TRPCError({
@@ -84,12 +76,14 @@ const enforceUserIsAdmin = t.middleware(({ ctx, next }) => {
       message: "Not authenticated",
     });
   }
+
   if (!ctx.user.isAdmin) {
     throw new TRPCError({
       code: "FORBIDDEN",
-      message: "Not authorized",
+      message: "Not authorized. Admin access required.",
     });
   }
+
   return next({
     ctx: {
       ...ctx,
@@ -98,8 +92,7 @@ const enforceUserIsAdmin = t.middleware(({ ctx, next }) => {
   });
 });
 
-// Export router and procedures
-export const createTRPCRouter = baseRouter;
-export const publicProcedure = baseProcedure;
-export const protectedProcedure = baseProcedure.use(enforceUserIsAuthed);
-export const adminProcedure = baseProcedure.use(enforceUserIsAdmin);
+export const createTRPCRouter = t.router;
+export const publicProcedure = t.procedure;
+export const protectedProcedure = t.procedure.use(enforceUserIsAuthed);
+export const adminProcedure = t.procedure.use(enforceUserIsAdmin);

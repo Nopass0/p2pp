@@ -10,6 +10,7 @@ import {
   Users,
   FileText,
   LogOut,
+  Receipt,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -47,19 +48,23 @@ const regularMenuItems = [
         title: "Telegram Wallet",
         path: "/dashboard/parser/tg",
       },
+      // {
+      //   title: "Tron",
+      //   path: "/dashboard/parser",
+      // },
       {
-        title: "Tron",
-        path: "/dashboard/parser",
+        title: "IDEX",
+        path: "/dashboard/parser/gate",
       },
       {
-        title: "Gate",
-        path: "/dashboard/parser/gate",
+        title: "Совпадения",
+        path: "/dashboard/parser/match",
       },
     ],
   },
   {
-    title: "Чекер",
-    icon: Search,
+    title: "Чеки",
+    icon: Receipt,
     path: "/dashboard/checker",
   },
 ];
@@ -75,11 +80,11 @@ const adminMenuItems = [
     icon: FileText,
     path: "/dashboard/admin/parser",
   },
-  {
-    title: "Чекер",
-    icon: Search,
-    path: "/dashboard/admin/checker",
-  },
+  // {
+  //   title: "Чекер",
+  //   icon: Search,
+  //   path: "/dashboard/admin/checker",
+  // },
 ];
 
 export function AppSidebar() {

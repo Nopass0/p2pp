@@ -6,6 +6,7 @@ export const env = createEnv({
     DATABASE_URL: z.string().url(),
     TELEGRAM_BOT_TOKEN: z.string().min(1),
     INIT_ADMIN_KEY: z.string().min(1),
+    SERVICES_URL: z.string().url(),
     NEXT_PUBLIC_APP_URL: z.string().url(),
     NODE_ENV: z
       .enum(["development", "production", "test"])
@@ -17,12 +18,15 @@ export const env = createEnv({
   },
   client: {
     NEXT_PUBLIC_TELEGRAM_BOT_USERNAME: z.string().min(1),
+    NEXT_PUBLIC_SERVICES_URL: z.string().url(), // для клиента
   },
   runtimeEnv: {
     DATABASE_URL: process.env.DATABASE_URL,
     TELEGRAM_BOT_TOKEN: process.env.TELEGRAM_BOT_TOKEN,
     INIT_ADMIN_KEY: process.env.INIT_ADMIN_KEY,
     NODE_ENV: process.env.NODE_ENV,
+    NEXT_PUBLIC_SERVICES_URL: process.env.NEXT_PUBLIC_SERVICES_URL,
+    SERVICES_URL: process.env.SERVICES_URL,
     NEXT_PUBLIC_TELEGRAM_BOT_USERNAME:
       process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME,
     NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,

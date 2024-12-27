@@ -1,98 +1,89 @@
-// prisma/schema.prisma
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 model User {
-  id          Int      @id @default(autoincrement())
-  telegramId  String   @unique
-  username    String?
-  firstName   String
-  lastName    String?
-  photoUrl    String?
-  isAdmin     Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  tgAuthToken String?
-  geminiToken String?
-
-  // Relations
-  sessions            Session[]
+  id                  Int                   @id @default(autoincrement())
+  telegramId          String                @unique
+  username            String?
+  firstName           String
+  lastName            String?
+  photoUrl            String?
+  isAdmin             Boolean               @default(false)
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime              @updatedAt
+  tgAuthToken         String?
+  geminiToken         String?
   adminActions        AdminAction[]
+  DeviceToken         DeviceToken[]
   gateCookies         GateCookie[]
   gateTransactions    GateTransaction[]
-  TronWallet          TronWallet?
-  TronTransaction     TronTransaction[]
-  TelegramTransaction TelegramTransaction[]
-  DeviceToken         DeviceToken[]
-  activityLogs        UserActivityLog[]
-  screenshots         Screenshot[]
-  UserSession         UserSession[]
   P2PTransaction      P2PTransaction[]
+  screenshots         Screenshot[]
+  sessions            Session[]
+  TelegramTransaction TelegramTransaction[]
+  TransactionMatch    TransactionMatch[]
+  TronTransaction     TronTransaction[]
+  TronWallet          TronWallet?
+  activityLogs        UserActivityLog[]
+  UserSession         UserSession[]
 
   @@index([telegramId])
 }
 
 model UserActivityLog {
-  id         Int       @id @default(autoincrement())
-  userId     Int
-  deviceId   Int // ID устройства/токена
-  windowName String // Название окна/страницы
-  action     String // Тип действия (открытие, закрытие, переход и т.д.)
-  startTime  DateTime // Время начала действия
-  endTime    DateTime? // Время окончания действия (для окон)
-  duration   Int? // Длительность в секундах
-  url        String? // URL если применимо
-  metadata   Json? // Дополнительные данные о действии
-  createdAt  DateTime  @default(now())
-
-  // Связи
-  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id          Int         @id @default(autoincrement())
+  userId      Int
+  deviceId    Int
+  windowName  String
+  action      String
+  startTime   DateTime
+  endTime     DateTime?
+  duration    Int?
+  url         String?
+  metadata    Json?
+  createdAt   DateTime    @default(now())
   deviceToken DeviceToken @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, createdAt])
   @@index([deviceId])
 }
 
 model Screenshot {
-  id         Int      @id @default(autoincrement())
-  userId     Int
-  deviceId   Int
-  filePath   String // Путь к файлу
-  fileSize   Int // Размер файла в байтах
-  width      Int // Ширина скриншота
-  height     Int // Высота скриншота
-  createdAt  DateTime @default(now())
-  sentToUser Boolean  @default(false)
-  metadata   Json? // Дополнительная информация
-
-  // Связи
-  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id          Int         @id @default(autoincrement())
+  userId      Int
+  deviceId    Int
+  filePath    String
+  fileSize    Int
+  width       Int
+  height      Int
+  createdAt   DateTime    @default(now())
+  sentToUser  Boolean     @default(false)
+  metadata    Json?
   deviceToken DeviceToken @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, createdAt])
   @@index([deviceId])
 }
 
 model UserSession {
-  id        Int       @id @default(autoincrement())
-  userId    Int
-  deviceId  Int
-  startTime DateTime  @default(now())
-  endTime   DateTime?
-  duration  Int? // Длительность в секундах
-  isActive  Boolean   @default(true)
-  metadata  Json? // Информация о сессии (IP, браузер и т.д.)
-
-  // Связи
-  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id          Int         @id @default(autoincrement())
+  userId      Int
+  deviceId    Int
+  startTime   DateTime    @default(now())
+  endTime     DateTime?
+  duration    Int?
+  isActive    Boolean     @default(true)
+  metadata    Json?
   deviceToken DeviceToken @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, startTime])
   @@index([deviceId])
@@ -101,27 +92,23 @@ model UserSession {
 model Session {
   id        Int      @id @default(autoincrement())
   userId    Int
-  token     String   @unique // Session token
+  token     String   @unique
   expiresAt DateTime
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-
-  // Relations
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([token])
 }
 
 model AdminAction {
   id        Int      @id @default(autoincrement())
-  userId    Int // Admin who performed the action
-  action    String // Description of the action
-  target    String? // Target of the action (e.g., user ID)
-  metadata  Json? // Additional action metadata
+  userId    Int
+  action    String
+  target    String?
+  metadata  Json?
   createdAt DateTime @default(now())
-
-  // Relations
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, createdAt])
 }
@@ -137,48 +124,47 @@ model AdminInviteCode {
   @@index([code])
 }
 
-// Gate Models
 model GateCookie {
   id          Int      @id @default(autoincrement())
   userId      Int
-  cookie      String   @db.Text
+  cookie      String
   isActive    Boolean  @default(true)
   lastChecked DateTime @default(now())
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-
-  // Relations
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
 }
 
 model GateTransaction {
-  id              Int       @id @default(autoincrement())
-  userId          Int
-  transactionId   String    @unique // Gate transaction ID
-  paymentMethodId Int
-  wallet          String
-  amountRub       Float
-  amountUsdt      Float
-  totalRub        Float
-  totalUsdt       Float
-  status          Int
-  bankName        String?
-  bankLabel       String?
-  paymentMethod   String?
-  course          Float?
-  successCount    Int?
-  successRate     Float?
-  usdtBalance     String?
-  rubBalance      String?
-  approvedAt      DateTime?
-  expiredAt       DateTime?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-
-  // Relations
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id               Int                @id @default(autoincrement())
+  userId           Int
+  transactionId    String             @unique
+  paymentMethodId  Int
+  wallet           String
+  amountRub        Float
+  amountUsdt       Float
+  totalRub         Float
+  totalUsdt        Float
+  status           Int
+  bankName         String?
+  bankLabel        String?
+  paymentMethod    String?
+  course           Float?
+  successCount     Int?
+  successRate      Float?
+  approvedAt       DateTime?
+  expiredAt        DateTime?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  attachments      Json?
+  bankCode         String?
+  traderId         Int?
+  traderName       String?
+  user             User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  Receipt          Receipt[]
+  TransactionMatch TransactionMatch[]
 
   @@index([userId, createdAt])
   @@index([transactionId])
@@ -206,50 +192,44 @@ model TelegramTransaction {
   is_blocked                Boolean  @default(false)
   network                   String?
   cryptocurrency_exchange   String?
-
-  // Relations
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user                      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, createdAt])
   @@index([transactionId])
 }
 
 model TronWallet {
-  id        Int      @id @default(autoincrement())
-  userId    Int      @unique
-  address   String // TRON wallet address
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Relations
-  user         User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id           Int               @id @default(autoincrement())
+  userId       Int               @unique
+  address      String
+  isActive     Boolean           @default(true)
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
   transactions TronTransaction[]
+  user         User              @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([address])
 }
 
 model TronTransaction {
-  id           Int      @id @default(autoincrement())
+  id           Int        @id @default(autoincrement())
   userId       Int
   walletId     Int
-  hash         String   @unique
+  hash         String     @unique
   fromAddress  String
   toAddress    String
-  amount       String // Using String for large numbers
+  amount       String
   tokenDecimal Int
   tokenSymbol  String
   tokenName    String
   methodName   String?
   confirmed    Boolean
   timestamp    DateTime
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  // Relations
-  user   User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  wallet TronWallet @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  wallet       TronWallet @relation(fields: [walletId], references: [id], onDelete: Cascade)
 
   @@index([userId, timestamp])
   @@index([hash])
@@ -257,20 +237,17 @@ model TronTransaction {
 }
 
 model DeviceToken {
-  id        Int      @id @default(autoincrement())
-  userId    Int
-  token     String   @unique
-  deviceId  String // Уникальный идентификатор устройства
-  name      String? // Имя устройства (опционально)
-  lastUsed  DateTime @default(now())
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Relations
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  activityLogs UserActivityLog[]
+  id           Int               @id @default(autoincrement())
+  userId       Int
+  token        String            @unique
+  deviceId     String
+  name         String?
+  lastUsed     DateTime          @default(now())
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+  user         User              @relation(fields: [userId], references: [id], onDelete: Cascade)
   screenshots  Screenshot[]
+  activityLogs UserActivityLog[]
   sessions     UserSession[]
 
   @@unique([userId, deviceId])
@@ -279,22 +256,58 @@ model DeviceToken {
 }
 
 model P2PTransaction {
-  id          Int      @id @default(autoincrement())
-  userId      Int
-  telegramId  String // ID сделки в телеграме (#OS-XXXXXXXX)
-  status      String // Статус сделки (Завершено, и т.д.)
-  amount      Float // Сумма в USDT
-  totalRub    Float // Сумма в рублях
-  price       Float // Цена за 1 USDT
-  buyerName   String // Имя покупателя
-  method      String // Метод оплаты (например "СБП")
-  tradeStats  String? // Статистика торгов (например "сделок: 4 • 100%")
-  completedAt DateTime // Когда была завершена сделка
-  createdAt   DateTime @default(now())
-  processed   Boolean  @default(false) // Флаг обработки сделки
-  User        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id               Int                @id @default(autoincrement())
+  userId           Int
+  telegramId       String
+  status           String
+  amount           Float
+  totalRub         Float
+  price            Float
+  buyerName        String
+  method           String
+  tradeStats       String?
+  completedAt      DateTime
+  createdAt        DateTime           @default(now())
+  processed        Boolean            @default(false)
+  User             User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  TransactionMatch TransactionMatch[]
 
   @@unique([userId, telegramId])
   @@index([userId])
   @@index([telegramId])
+}
+
+model TransactionMatch {
+  id              Int             @id @default(autoincrement())
+  userId          Int
+  p2pTxId         Int
+  gateTxId        Int
+  isAutoMatched   Boolean         @default(false)
+  timeDifference  Int
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime
+  GateTransaction GateTransaction @relation(fields: [gateTxId], references: [id], onDelete: Cascade)
+  P2PTransaction  P2PTransaction  @relation(fields: [p2pTxId], references: [id], onDelete: Cascade)
+  User            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([p2pTxId, gateTxId])
+  @@index([gateTxId])
+  @@index([p2pTxId])
+  @@index([userId, createdAt])
+}
+
+model Receipt {
+  id              Int             @id @default(autoincrement())
+  gateId          Int
+  bankLabel       String?
+  fileName        String
+  fileSize        Int
+  filePath        String
+  isVerified      Boolean         @default(false)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime
+  GateTransaction GateTransaction @relation(fields: [gateId], references: [id], onDelete: Cascade)
+
+  @@index([gateId])
+  @@index([isVerified])
 }
