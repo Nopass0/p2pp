@@ -173,36 +173,79 @@ export const gateRouter = createTRPCRouter({
   saveCookies: protectedProcedure
     .input(z.object({ cookies: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      try {
-        const result = await ctx.db.gateCookie.upsert({
-          //@ts-ignore
+      if (!ctx.user?.id) {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "User not authenticated",
+        });
+      }
 
+      try {
+        // Validate that the input is actually a JSON string
+        let parsedCookies: unknown;
+        try {
+          parsedCookies = JSON.parse(input.cookies);
+          if (!Array.isArray(parsedCookies)) {
+            throw new Error("Invalid cookie format");
+          }
+        } catch (e) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Invalid cookie format. Expected JSON array.",
+          });
+        }
+
+        // First try to find existing cookie for this user
+        const existingCookie = await ctx.db.gateCookie.findFirst({
           where: {
             userId: ctx.user.id,
           },
-          create: {
-            userId: ctx.user.id,
-            cookie: input.cookies,
-            isActive: true,
-          },
-          update: {
-            cookie: input.cookies,
-            isActive: true,
-            lastChecked: new Date(),
-          },
         });
+
+        let result;
+
+        if (existingCookie) {
+          // Update existing cookie
+          result = await ctx.db.gateCookie.update({
+            where: {
+              id: existingCookie.id, // Use the id for update
+            },
+            data: {
+              cookie: input.cookies,
+              isActive: true,
+              lastChecked: new Date(),
+            },
+          });
+        } else {
+          // Create new cookie
+          result = await ctx.db.gateCookie.create({
+            data: {
+              userId: ctx.user.id,
+              cookie: input.cookies,
+              isActive: true,
+              lastChecked: new Date(),
+            },
+          });
+        }
 
         return {
           success: true,
           data: {
-            ...result,
+            id: result.id,
+            userId: result.userId,
+            cookie: result.cookie,
+            isActive: result.isActive,
             createdAt: result.createdAt.toISOString(),
             updatedAt: result.updatedAt.toISOString(),
-            lastChecked: result.lastChecked.toISOString(),
+            lastChecked: result.lastChecked?.toISOString() || null,
           },
         };
       } catch (error) {
         console.error("Error in saveCookies:", error);
+
+        if (error instanceof TRPCError) {
+          throw error;
+        }
 
         if (error instanceof Prisma.PrismaClientKnownRequestError) {
           throw new TRPCError({
