@@ -94,7 +94,7 @@ export default function SettingsPage() {
             </CardContent>
           </Card>
         )}
-        <GeminiTokenCard />
+        {/* <GeminiTokenCard /> */}
         <DeviceTokens />
       </motion.div>
     </div>
