@@ -11,6 +11,11 @@ import {
   FileText,
   LogOut,
   Receipt,
+  Activity,
+  LayoutDashboard,
+  PieChart,
+  Settings,
+  UserCog,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -71,20 +76,45 @@ const regularMenuItems = [
 
 const adminMenuItems = [
   {
+    title: "Dashboard",
+    icon: LayoutDashboard,
+    path: "/dashboard/admin",
+  },
+  {
     title: "Пользователи",
     icon: Users,
     path: "/dashboard/admin/users",
+  },
+  {
+    title: "Сотрудники",
+    icon: UserCog,
+    path: "/dashboard/admin/employees",
+  },
+  {
+    title: "Транзакции",
+    icon: Receipt,
+    path: "/dashboard/admin/transactions",
+  },
+  {
+    title: "Настройки",
+    icon: Settings,
+    path: "/dashboard/admin/settings",
+  },
+  {
+    title: "Расчет прибыли",
+    icon: PieChart,
+    path: "/dashboard/admin/profit",
   },
   {
     title: "Парсер",
     icon: FileText,
     path: "/dashboard/admin/parser",
   },
-  // {
-  //   title: "Чекер",
-  //   icon: Search,
-  //   path: "/dashboard/admin/checker",
-  // },
+  {
+    title: "Логи действий",
+    icon: Activity,
+    path: "/dashboard/admin/action-logs",
+  },
 ];
 
 export function AppSidebar() {

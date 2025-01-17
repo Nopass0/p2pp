@@ -9,9 +9,11 @@ datasource db {
 
 model User {
   id                  Int                   @id @default(autoincrement())
-  telegramId          String                @unique
+  telegramId String?   @unique
+  login      String   @unique
+  password   String
   username            String?
-  firstName           String
+  firstName  String?
   lastName            String?
   photoUrl            String?
   isAdmin             Boolean               @default(false)
@@ -32,7 +34,10 @@ model User {
   TronWallet          TronWallet?
   activityLogs        UserActivityLog[]
   UserSession         UserSession[]
+  //зарплатны коэффициент
+  commissionRate      Float?
 
+  @@index([login])
   @@index([telegramId])
 }
 
@@ -132,9 +137,9 @@ model GateCookie {
   lastChecked DateTime @default(now())
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user        User     @relation(fields: [userId], references: [id])
 
-  @@index([userId])
+  @@unique([userId, cookie])
 }
 
 model GateTransaction {
@@ -165,9 +170,28 @@ model GateTransaction {
   user             User               @relation(fields: [userId], references: [id], onDelete: Cascade)
   Receipt          Receipt[]
   TransactionMatch TransactionMatch[]
+  commissionRate      Float?                // Новое поле: зарплатный коэффициент
+  initialBalance      Float?                // Новое поле: начальный баланс
 
   @@index([userId, createdAt])
   @@index([transactionId])
+}
+
+model CustomMetric {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique
+  formula     String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Expense {
+  id     Int      @id @default(autoincrement())
+  amount Float
+  date   DateTime
+  name   String
+  // Add any other fields you need for expenses
 }
 
 model TelegramTransaction {

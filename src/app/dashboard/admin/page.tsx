@@ -1,25 +1,50 @@
-// src/app/dashboard/admin/page.tsx
-import { redirect } from "next/navigation";
-import { getServerAuthSession } from "@/server/auth";
+"use client";
 
-export default async function AdminPage() {
-  const session = await getServerAuthSession();
-  
-  if (!session) {
-    redirect("/");
-  }
+import { useState } from "react";
+import { Suspense } from "react";
+import { DateRangePicker } from "@/components/admin/DateRangePicker";
+import { OverallMetrics } from "@/components/admin/OverallMetrics";
+import { EmployeeTable } from "@/components/admin/EmployeeTable";
+import { CustomMetrics } from "@/components/admin/CustomMetrics";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
-  // Здесь нужно добавить проверку на админа
-  // if (!session.user.isAdmin) {
-  //   redirect("/dashboard");
-  // }
+export default function AdminDashboard() {
+  const [dateRange, setDateRange] = useState({
+    from: new Date(new Date().setDate(new Date().getDate() - 30)),
+    to: new Date(),
+  });
 
   return (
-    <div className="container mx-auto py-8">
-      <h1 className="mb-6 text-3xl font-bold">Админ панель</h1>
-      <div className="grid gap-6 md:grid-cols-2">
-        {/* Здесь будут компоненты админ-панели */}
-      </div>
-    </div>
+    <ScrollArea className="space-y-6">
+      <h1 className="text-3xl font-bold">Панель администратора</h1>
+      <DateRangePicker
+        value={dateRange}
+        onChange={(newRange) => {
+          if (newRange?.from && newRange?.to) {
+            setDateRange({ from: newRange.from, to: newRange.to });
+            console.log("Диапазон дат изменен:", newRange);
+            // Here you would typically update your data fetching logic
+            // based on the new date range
+          }
+        }}
+      />
+      <Suspense fallback={<div>Загрузка общих метрик...</div>}>
+        <OverallMetrics dateRange={dateRange} />
+      </Suspense>
+      <Card>
+        <CardHeader>
+          <CardTitle>Последние сотрудники</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Suspense fallback={<div>Загрузка таблицы сотрудников...</div>}>
+            <EmployeeTable limit={5} dateRange={dateRange} />
+          </Suspense>
+        </CardContent>
+      </Card>
+      <Suspense fallback={<div>Загрузка пользовательских метрик...</div>}>
+        <CustomMetrics dateRange={dateRange} />
+      </Suspense>
+    </ScrollArea>
   );
 }

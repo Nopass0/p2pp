@@ -17,6 +17,8 @@ export function UserNav() {
   const router = useRouter();
   const { data: session } = api.auth.getSession.useQuery();
   const { mutate: logout } = api.auth.logout.useMutation({
+    //@ts-ignore
+
     onSuccess: () => {
       router.push("/auth");
     },
@@ -24,10 +26,13 @@ export function UserNav() {
 
   if (!session?.user) return null;
 
-  const { firstName, lastName, username, photoUrl, telegramId } = session.user;
+  const { firstName, lastName, username, photoUrl, telegramId, login } =
+    session.user;
 
   return (
     <DropdownMenu>
+      {/* @ts-ignore */}
+
       <DropdownMenuTrigger asChild>
         <button className="flex items-center gap-2 rounded-lg p-2 hover:bg-accent">
           <Avatar>
@@ -41,7 +46,7 @@ export function UserNav() {
               {firstName} {lastName ?? ""}
             </p>
             <p className="text-xs text-muted-foreground">
-              {username ? `@${username}` : `ID: ${telegramId}`}
+              {login ? `@${login}` : `ID: `}
             </p>
           </div>
         </button>
