@@ -56,47 +56,53 @@ export const adminRouter = createTRPCRouter({
       const commission = 1.009; // 0.9% commission
 
       try {
-        const [gateTransactions, p2pTransactions] = await Promise.all([
-          db.gateTransaction.findMany({
-            where: {
-              createdAt: { gte: from, lte: to },
-            },
-          }),
-          db.p2PTransaction.findMany({
-            where: {
-              completedAt: { gte: from, lte: to },
-            },
-          }),
-        ]);
-
-        console.log(gateTransactions, p2pTransactions);
+        // Fetch transactions using TransactionMatch model
+        const matchTransactions = await db.transactionMatch.findMany({
+          where: {
+            createdAt: { gte: from, lte: to },
+          },
+          include: {
+            GateTransaction: true,
+            P2PTransaction: true,
+          },
+        });
 
         // Валовая прибыль
-        const grossProfit =
-          gateTransactions.reduce((sum, order) => sum + order.amountUsdt, 0) -
-          commission *
-            p2pTransactions.reduce((sum, order) => sum + order.amount, 0);
+        const grossProfit = matchTransactions.reduce((sum, match) => {
+          return (
+            sum +
+            match.GateTransaction.amountUsdt -
+            commission * match.P2PTransaction.amount
+          );
+        }, 0);
 
-        // 2. Валовая прибыль в процентном соотношении
+        // Валовая прибыль в процентном соотношении
         const grossProfitPercentage =
           (grossProfit /
             (commission *
-              p2pTransactions.reduce((sum, order) => sum + order.amount, 0))) *
+              matchTransactions.reduce(
+                (sum, match) => sum + match.P2PTransaction.amount,
+                0,
+              ))) *
           100;
 
-        // 3. Средняя валовая прибыль на ордер
+        // Средняя валовая прибыль на ордер
         const averageGrossProfitPerOrder =
-          grossProfit / gateTransactions.length;
+          grossProfit / matchTransactions.length;
 
-        // 4. Средняя сумма ордера в USDT
+        // Средняя сумма ордера в USDT
         const averageOrderAmountUsdt =
-          p2pTransactions.reduce((sum, order) => sum + order.amount, 0) /
-          p2pTransactions.length;
+          matchTransactions.reduce(
+            (sum, match) => sum + match.P2PTransaction.amount,
+            0,
+          ) / matchTransactions.length;
 
-        // 5. Средняя сумма ордера в рублях
+        // Средняя сумма ордера в рублях
         const averageOrderAmountRub =
-          gateTransactions.reduce((sum, order) => sum + order.amountRub, 0) /
-          gateTransactions.length;
+          matchTransactions.reduce(
+            (sum, match) => sum + match.GateTransaction.amountRub,
+            0,
+          ) / matchTransactions.length;
 
         return {
           grossProfit,

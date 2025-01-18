@@ -34,7 +34,7 @@ export function OverallMetrics({ dateRange }: OverallMetricsProps) {
             {data?.grossProfitPercentage !== null
               ? data?.grossProfitPercentage.toFixed(2)
               : "0"}{" "}
-            USDT
+            %
           </p>
         </CardContent>
       </Card>
