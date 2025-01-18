@@ -392,7 +392,17 @@ export default function MatchParserPage() {
                       <TableHeader className="sticky top-0 z-10 bg-background">
                         <TableRow>
                           <TableHead className="w-[140px]">Дата</TableHead>
-                          <TableHead className="w-[120px]">P2P Сумма</TableHead>
+                          <TableHead className="flex w-[120px] items-center gap-2">
+                            <p>P2P Сумма</p>
+                            <p className="text-xs text-muted-foreground">
+                              {mathes.reduce(
+                                (sum, match) =>
+                                  sum + match.P2PTransaction.amount,
+                                0,
+                              )}{" "}
+                              USDT
+                            </p>
+                          </TableHead>
                           <TableHead className="w-[120px]">
                             Gate Сумма
                           </TableHead>
