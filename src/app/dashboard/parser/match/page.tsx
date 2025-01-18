@@ -395,7 +395,7 @@ export default function MatchParserPage() {
                           <TableHead className="flex w-[120px] items-center gap-2">
                             <p>P2P Сумма</p>
                             <p className="text-xs text-muted-foreground">
-                              {mathes.reduce(
+                              {matches.reduce(
                                 (sum, match) =>
                                   sum + match.P2PTransaction.amount,
                                 0,
