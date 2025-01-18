@@ -20,7 +20,7 @@ export function OverallMetrics({ dateRange }: OverallMetricsProps) {
         </CardHeader>
         <CardContent>
           <p className="text-2xl font-bold">
-            {data?.grossProfit !== null ? data?.grossProfit.toFixed(2) : "0"}{" "}
+            {data?.grossProfit !== null ? data?.grossProfit.toFixed(20) : "0"}{" "}
             USDT
           </p>
         </CardContent>
