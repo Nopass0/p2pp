@@ -173,7 +173,7 @@ const formatMoney = (amount: number) => {
 
 const calculateSpread = (match: Match) => {
   return Math.abs(
-    match.P2PTransaction.amount - match.GateTransaction.amountUsdt,
+    match.P2PTransaction.amount - match.GateTransaction.totalUsdt,
   );
 };
 
@@ -229,7 +229,7 @@ const TransactionDetails = ({ match }: { match: Match }) => (
         <div className="space-y-1">
           <p className="text-sm text-muted-foreground">Сумма USDT</p>
           <p className="font-mono text-lg font-medium">
-            {formatMoney(match.GateTransaction.amountUsdt)}
+            {formatMoney(match.GateTransaction.totalUsdt)}
           </p>
         </div>
         <div className="space-y-1">
@@ -421,7 +421,7 @@ export default function MatchParserPage() {
                               {formatMoney(match.P2PTransaction.amount)}
                             </TableCell>
                             <TableCell className="font-mono">
-                              {formatMoney(match.GateTransaction.amountUsdt)}
+                              {formatMoney(match.GateTransaction.totalUsdt)}
                             </TableCell>
                             <TableCell className="font-mono">
                               {formatMoney(calculateSpread(match))}

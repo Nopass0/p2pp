@@ -83,11 +83,11 @@ export const adminRouter = createTRPCRouter({
         // Валовая прибыль
         const grossProfit =
           matchTransactions.reduce((sum, match) => {
-            return sum + match.GateTransaction.amountUsdt;
+            return sum + match.GateTransaction.totalUsdt;
           }, 0) -
           commission *
             matchTransactions.reduce((sum, match) => {
-              return sum + match.P2PTransaction.amountUsdt;
+              return sum + match.P2PTransaction.amount;
             }, 0);
 
         // Валовая прибыль в процентном соотношении
