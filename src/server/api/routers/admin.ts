@@ -56,6 +56,19 @@ export const adminRouter = createTRPCRouter({
       const commission = 1.009; // 0.9% commission
 
       try {
+        const [gateTransactions, p2pTransactions, ] = await Promise.all([
+          db.gateTransaction.findMany({
+            where: {
+              createdAt: { gte: from, lte: to },
+            },
+          }),
+          db.p2PTransaction.findMany({
+            where: {
+              completedAt: { gte: from, lte: to },
+            },
+          }),
+        ]);
+
         // Fetch transactions using TransactionMatch model
         const matchTransactions = await db.transactionMatch.findMany({
           where: {
@@ -71,10 +84,15 @@ export const adminRouter = createTRPCRouter({
         const grossProfit = matchTransactions.reduce((sum, match) => {
           return (
             sum +
-            match.GateTransaction.amountUsdt -
-            commission * match.P2PTransaction.amount
+            match.GateTransaction.amountUsdt
+
           );
-        }, 0);
+        }, 0) - (commission *  matchTransactions.reduce((sum, match) => {
+          return (
+            sum +
+            match.P2PTransaction.amountUsdt
+
+          );
 
         // Валовая прибыль в процентном соотношении
         const grossProfitPercentage =
