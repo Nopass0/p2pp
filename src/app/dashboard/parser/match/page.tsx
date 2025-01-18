@@ -167,7 +167,7 @@ const formatDate = (date: Date | string | null) => {
 const formatMoney = (amount: number) => {
   return new Intl.NumberFormat("ru-RU", {
     minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
+    maximumFractionDigits: 20,
   }).format(amount);
 };
 
