@@ -9,11 +9,7 @@ export const metadata: Metadata = {
 };
 
 export default async function Home() {
-  const session = await getServerAuthSession();
-  
-  if (session) {
-    redirect("/dashboard");
-  }
+  redirect("/dashboard");
 
   return (
     <main className="flex h-[calc(100vh-4rem)] flex-col items-center justify-center p-4 md:p-8">

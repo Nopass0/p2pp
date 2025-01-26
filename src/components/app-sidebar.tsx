@@ -44,29 +44,29 @@ import {
 import UserComponent from "@/components/UserComponent";
 
 const regularMenuItems = [
-  {
-    title: "Парсер",
-    icon: FileText,
-    path: "/dashboard/parser",
-    items: [
-      {
-        title: "Telegram Wallet",
-        path: "/dashboard/parser/tg",
-      },
-      // {
-      //   title: "Tron",
-      //   path: "/dashboard/parser",
-      // },
-      {
-        title: "IDEX",
-        path: "/dashboard/parser/gate",
-      },
-      {
-        title: "Совпадения",
-        path: "/dashboard/parser/match",
-      },
-    ],
-  },
+  // {
+  //   title: "Парсер",
+  //   icon: FileText,
+  //   path: "/dashboard/parser",
+  //   items: [
+  //     {
+  //       title: "Telegram Wallet",
+  //       path: "/dashboard/parser/tg",
+  //     },
+  //     {
+  //       title: "Tron",
+  //       path: "/dashboard/parser/tron",
+  //     },
+  //     {
+  //       title: "IDEX",
+  //       path: "/dashboard/parser/gate",
+  //     },
+  //     {
+  //       title: "Совпадения",
+  //       path: "/dashboard/parser/match",
+  //     },
+  //   ],
+  // },
   {
     title: "Чеки",
     icon: Receipt,

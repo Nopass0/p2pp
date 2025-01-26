@@ -19,6 +19,7 @@ export default function AdminDashboard() {
     <ScrollArea className="space-y-6">
       <h1 className="text-3xl font-bold">Панель администратора</h1>
       <DateRangePicker
+        className="my-4"
         value={dateRange}
         onChange={(newRange) => {
           if (newRange?.from && newRange?.to) {
@@ -32,7 +33,7 @@ export default function AdminDashboard() {
       <Suspense fallback={<div>Загрузка общих метрик...</div>}>
         <OverallMetrics dateRange={dateRange} />
       </Suspense>
-      <Card>
+      {/* <Card>
         <CardHeader>
           <CardTitle>Последние сотрудники</CardTitle>
         </CardHeader>
@@ -44,7 +45,7 @@ export default function AdminDashboard() {
       </Card>
       <Suspense fallback={<div>Загрузка пользовательских метрик...</div>}>
         <CustomMetrics dateRange={dateRange} />
-      </Suspense>
+      </Suspense> */}
     </ScrollArea>
   );
 }

@@ -46,7 +46,28 @@ const userSearchInput = z.object({
   page: z.number().min(1).default(1),
   sortBy: z.string().optional(),
   sortDirection: z.enum(["asc", "desc"]).optional(),
+  withPassport: z.boolean().optional(),
 });
+
+function calculateWorkTime(transactions: TransactionMatch[]): number {
+  if (transactions.length === 0) return 0;
+  const first = transactions[0].createdAt.getTime();
+  const last = transactions[transactions.length - 1].createdAt.getTime();
+  return (last - first) / (1000 * 60); // в минутах
+}
+
+function calculateGrossProfit(
+  gateTransactions: GateTransaction[],
+  p2pTransactions: P2PTransaction[],
+): number {
+  const commission = 1.009;
+  const totalGate = gateTransactions.reduce((sum, tx) => sum + tx.totalUsdt, 0);
+  const totalP2P = p2pTransactions.reduce(
+    (sum, tx) => sum + tx.amount * commission,
+    0,
+  );
+  return totalGate - totalP2P;
+}
 
 export const adminRouter = createTRPCRouter({
   getOverallMetrics: adminProcedure
@@ -80,6 +101,10 @@ export const adminRouter = createTRPCRouter({
           },
         });
 
+        // Валовый расход (все заявки в USDT p2p * commission)
+        const grossExpense = matchTransactions.reduce((sum, match) => {
+          return sum + match.P2PTransaction.amount * commission;
+        }, 0);
         // Валовая прибыль
         const grossProfit =
           matchTransactions.reduce((sum, match) => {
@@ -99,6 +124,9 @@ export const adminRouter = createTRPCRouter({
                 0,
               ))) *
           100;
+
+        //Валовая выручка
+        const grossRevenue = grossProfit + grossExpense;
 
         // Средняя валовая прибыль на ордер
         const averageGrossProfitPerOrder =
@@ -121,6 +149,8 @@ export const adminRouter = createTRPCRouter({
         return {
           grossProfit,
           grossProfitPercentage,
+          grossExpense,
+          grossRevenue,
           averageGrossProfitPerOrder,
           averageOrderAmountUsdt,
           averageOrderAmountRub,
@@ -132,6 +162,25 @@ export const adminRouter = createTRPCRouter({
           message: "An error occurred while fetching overall metrics",
         });
       }
+    }),
+
+  updateEmployee: adminProcedure
+    .input(
+      z.object({
+        userId: z.number(),
+        firstName: z.string().optional(),
+        lastName: z.string().optional(),
+        middleName: z.string().optional(),
+        passportPhoto: z.string().optional(),
+        commissionRate: z.number().min(0).max(100).optional(),
+      }),
+    )
+    .mutation(async ({ input }) => {
+      const { userId, ...data } = input;
+      return await db.user.update({
+        where: { id: userId },
+        data,
+      });
     }),
 
   getEmployees: adminProcedure
@@ -164,7 +213,10 @@ export const adminRouter = createTRPCRouter({
           username: true,
           firstName: true,
           lastName: true,
+          middleName: true,
+          passportPhoto: true,
           telegramId: true,
+          commissionRate: true,
           gateTransactions: {
             where: {
               status: 1,
@@ -175,6 +227,17 @@ export const adminRouter = createTRPCRouter({
                 },
               }),
             },
+          },
+          TransactionMatch: {
+            where: {
+              ...(dateRange && {
+                createdAt: {
+                  gte: dateRange.from,
+                  lte: dateRange.to,
+                },
+              }),
+            },
+            orderBy: { createdAt: "asc" },
           },
           P2PTransaction: {
             where: {
@@ -212,6 +275,14 @@ export const adminRouter = createTRPCRouter({
         telegramId: employee.telegramId || "N/A",
         gateId: employee.telegramId, // Assuming Gate ID is the same as Telegram ID
         workTime: calculateTotalWorkTime(employee.UserSession),
+        commissionRate: employee.commissionRate,
+        middleName: employee.middleName,
+        passportPhoto: employee.passportPhoto,
+        workTime: calculateWorkTime(employee.TransactionMatch),
+        grossProfit: calculateGrossProfit(
+          employee.gateTransactions,
+          employee.P2PTransaction,
+        ),
         ordersCount:
           employee.gateTransactions.length + employee.P2PTransaction.length,
         revenue: calculateEmployeeRevenue(
@@ -219,6 +290,24 @@ export const adminRouter = createTRPCRouter({
           employee.P2PTransaction,
         ),
       }));
+    }),
+
+  updateCommissionRate: adminProcedure
+    .input(
+      z.object({
+        employeeId: z.number(),
+        rate: z.number().min(0).max(100),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const { employeeId, rate } = input;
+
+      const updatedUser = await db.user.update({
+        where: { id: employeeId },
+        data: { commissionRate: rate },
+      });
+
+      return updatedUser;
     }),
 
   getEmployeeDetails: adminProcedure

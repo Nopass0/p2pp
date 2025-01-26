@@ -35,7 +35,10 @@ model User {
   activityLogs        UserActivityLog[]
   UserSession         UserSession[]
   //зарплатны коэффициент
-  commissionRate      Float?
+  passportPhoto  String?  // Добавляем поле для фото паспорта
+  commissionRate Float?
+  initialBalance Float?
+  middleName     String?  // Добавляем отчество
 
   @@index([login])
   @@index([telegramId])
