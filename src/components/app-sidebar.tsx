@@ -85,36 +85,36 @@ const adminMenuItems = [
     icon: Users,
     path: "/dashboard/admin/users",
   },
-  {
-    title: "Сотрудники",
-    icon: UserCog,
-    path: "/dashboard/admin/employees",
-  },
-  {
-    title: "Транзакции",
-    icon: Receipt,
-    path: "/dashboard/admin/transactions",
-  },
-  {
-    title: "Настройки",
-    icon: Settings,
-    path: "/dashboard/admin/settings",
-  },
+  // {
+  //   title: "Сотрудники",
+  //   icon: UserCog,
+  //   path: "/dashboard/admin/employees",
+  // },
+  // {
+  //   title: "Транзакции",
+  //   icon: Receipt,
+  //   path: "/dashboard/admin/transactions",
+  // },
+  // {
+  //   title: "Настройки",
+  //   icon: Settings,
+  //   path: "/dashboard/admin/settings",
+  // },
   {
     title: "Расчет прибыли",
     icon: PieChart,
     path: "/dashboard/admin/profit",
   },
   {
-    title: "Парсер",
+    title: "Транзакции",
     icon: FileText,
     path: "/dashboard/admin/parser",
   },
-  {
-    title: "Логи действий",
-    icon: Activity,
-    path: "/dashboard/admin/action-logs",
-  },
+  // {
+  //   title: "Логи действий",
+  //   icon: Activity,
+  //   path: "/dashboard/admin/action-logs",
+  // },
 ];
 
 export function AppSidebar() {

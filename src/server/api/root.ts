@@ -8,6 +8,7 @@ import { createTRPCRouter } from "@/server/api/trpc";
 import { deviceTokenRouter } from "@/server/api/routers/deviceToken";
 import { geminiRouter } from "./routers/gemini";
 import { receiptRouter } from "./routers/receipt";
+import { uploadRouter } from "./routers/upload";
 
 export const appRouter = createTRPCRouter({
   auth: authRouter,
@@ -18,6 +19,7 @@ export const appRouter = createTRPCRouter({
   deviceToken: deviceTokenRouter,
   gemini: geminiRouter,
   receipt: receiptRouter,
+  upload: uploadRouter,
 });
 
 export type AppRouter = typeof appRouter;

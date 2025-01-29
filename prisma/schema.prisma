@@ -9,13 +9,19 @@ datasource db {
 
 model User {
   id                  Int                   @id @default(autoincrement())
-  telegramId String?   @unique
-  login      String   @unique
-  password   String
+  telegramId          String?               @unique
+  login               String                @unique
+  password            String
   username            String?
-  firstName  String?
+  firstName           String?
   lastName            String?
+  middleName          String?
   photoUrl            String?
+  passportPhoto       String?
+  deposit             Float                 @default(0)
+  commissionRate      Float?
+  salaryPercentage    Float                 @default(0.5)
+  initialBalance      Float?
   isAdmin             Boolean               @default(false)
   createdAt           DateTime              @default(now())
   updatedAt           DateTime              @updatedAt
@@ -34,11 +40,10 @@ model User {
   TronWallet          TronWallet?
   activityLogs        UserActivityLog[]
   UserSession         UserSession[]
-  //зарплатны коэффициент
-  passportPhoto  String?  // Добавляем поле для фото паспорта
-  commissionRate Float?
-  initialBalance Float?
-  middleName     String?  // Добавляем отчество
+  employeeExpenses    EmployeeExpense[]
+  appeals             Appeal[]
+  WorkTime            WorkTime[]
+  comments            EmployeeComment[]
 
   @@index([login])
   @@index([telegramId])
@@ -173,8 +178,8 @@ model GateTransaction {
   user             User               @relation(fields: [userId], references: [id], onDelete: Cascade)
   Receipt          Receipt[]
   TransactionMatch TransactionMatch[]
-  commissionRate      Float?                // Новое поле: зарплатный коэффициент
-  initialBalance      Float?                // Новое поле: начальный баланс
+  commissionRate   Float? // Новое поле: зарплатный коэффициент
+  initialBalance   Float? // Новое поле: начальный баланс
 
   @@index([userId, createdAt])
   @@index([transactionId])
@@ -337,4 +342,78 @@ model Receipt {
 
   @@index([gateId])
   @@index([isVerified])
+}
+
+model WorkTime {
+  id        Int          @id @default(autoincrement())
+  userId    Int
+  user      User        @relation(fields: [userId], references: [id])
+  duration  Float
+  startTime DateTime
+  endTime   DateTime?
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  report    WorkReport?
+
+  @@index([userId])
+}
+
+model WorkReport {
+  id          Int              @id @default(autoincrement())
+  workTimeId  Int             @unique
+  workTime    WorkTime        @relation(fields: [workTimeId], references: [id])
+  content     String
+  createdAt   DateTime        @default(now())
+  files       WorkReportFile[]
+}
+
+model WorkReportFile {
+  id          Int         @id @default(autoincrement())
+  reportId    Int
+  report      WorkReport  @relation(fields: [reportId], references: [id])
+  filename    String
+  path        String
+  createdAt   DateTime    @default(now())
+
+  @@index([reportId])
+}
+
+model EmployeeExpense {
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  amount      Float
+  currency    String // USDT or RUB
+  type        String // SCAM or ERROR
+  date        DateTime
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Appeal {
+  id              Int      @id @default(autoincrement())
+  userId          Int
+  gateId          String
+  status          String // PENDING, APPROVED, REJECTED
+  employeeComment String?
+  adminComment    String?
+  isFinalized     Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([gateId])
+}
+
+model EmployeeComment {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id])
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
