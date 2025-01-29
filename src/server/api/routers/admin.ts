@@ -60,7 +60,17 @@ const userSearchInput = z.object({
 const getEmployeesInput = z.object({
   search: z.string().default(""),
   limit: z.number().default(10),
+  offset: z.number().default(0),
   dateRange: dateRangeSchema,
+  currency: z.enum(['USDT', 'RUB']).default('USDT')
+});
+
+const addExpenseInput = z.object({
+  employeeId: z.number(),
+  amount: z.number(),
+  type: z.enum(["SCAM", "ERROR"]),
+  description: z.string(),
+  currency: z.enum(["USDT", "RUB"]).default("USDT")
 });
 
 async function calculateWorkTime(
@@ -105,53 +115,94 @@ function calculateGrossProfit(
   return totalGate - totalP2P;
 }
 
+function getDateRangeFromInput(dateRange: { from: string; to: string } | undefined) {
+  if (!dateRange) {
+    return {
+      from: new Date(0),
+      to: new Date()
+    };
+  }
+  return {
+    from: new Date(dateRange.from),
+    to: new Date(dateRange.to)
+  };
+}
+
 export const adminRouter = createTRPCRouter({
-  getOverallMetrics: protectedProcedure
+  getOverallMetrics: adminProcedure
     .input(
       z.object({
         dateRange: dateRangeInput,
       }),
     )
     .query(async ({ ctx, input }) => {
-      const { from, to } = {
-        from: new Date(input.dateRange.from),
-        to: new Date(input.dateRange.to),
-      };
+      try {
+        const dates = getDateRangeFromInput(input.dateRange);
 
-      const gateTransactions = await ctx.db.gateTransaction.findMany({
-        where: {
-          createdAt: {
-            gte: from,
-            lte: to,
-          },
-        },
-      });
+        const [gateTransactions, p2pTransactions, expenses] = await Promise.all([
+          ctx.db.gateTransaction.findMany({
+            where: {
+              createdAt: {
+                gte: dates.from,
+                lte: dates.to,
+              },
+            },
+            select: {
+              id: true,
+              totalUsdt: true,
+              createdAt: true
+            }
+          }),
+          ctx.db.p2PTransaction.findMany({
+            where: {
+              createdAt: {
+                gte: dates.from,
+                lte: dates.to,
+              },
+              processed: true
+            },
+            select: {
+              id: true,
+              amount: true,
+              price: true,
+              totalRub: true,
+              createdAt: true
+            }
+          }),
+          ctx.db.employeeExpense.findMany({
+            where: {
+              createdAt: {
+                gte: dates.from,
+                lte: dates.to,
+              },
+            },
+            select: {
+              amount: true
+            }
+          })
+        ]);
 
-      const p2pTransactions = await ctx.db.p2PTransaction.findMany({
-        where: {
-          createdAt: {
-            gte: from,
-            lte: to,
-          },
-        },
-      });
+        const totalOrders = gateTransactions.length + p2pTransactions.length;
+        const totalRevenue = calculateEmployeeRevenue(gateTransactions, p2pTransactions);
+        const totalExpenses = expenses.reduce((sum, exp) => sum + exp.amount, 0);
+        const grossProfit = totalRevenue - totalExpenses;
+        const grossProfitPercentage = totalRevenue > 0 ? (grossProfit / totalRevenue) * 100 : 0;
+        const averageOrderAmount = totalOrders > 0 ? totalRevenue / totalOrders : 0;
+        const averageOrderProfit = totalOrders > 0 ? grossProfit / totalOrders : 0;
 
-      const totalOrders = gateTransactions.length + p2pTransactions.length;
-      const totalRevenue = calculateEmployeeRevenue(gateTransactions, p2pTransactions);
-      const totalExpenses = await calculateTotalExpenses([], { from, to });
-      const grossProfit = totalRevenue - totalExpenses;
-      const averageOrderAmount = totalOrders > 0 ? totalRevenue / totalOrders : 0;
-      const averageOrderProfit = totalOrders > 0 ? grossProfit / totalOrders : 0;
-
-      return {
-        totalRevenue,
-        totalExpenses,
-        grossProfit,
-        grossProfitPercentage: totalRevenue > 0 ? (grossProfit / totalRevenue) * 100 : 0,
-        averageOrderAmount,
-        averageOrderProfit,
-        totalOrders,
-      };
+        return {
+          totalRevenue,
+          totalExpenses,
+          grossProfit,
+          grossProfitPercentage,
+          averageOrderAmount,
+          averageOrderProfit,
+          totalOrders,
+        };
+      } catch (error) {
+        console.error("Error in getOverallMetrics:", error);
+        throw error;
+      }
     }),
 
   updateEmployee: adminProcedure
@@ -174,124 +225,123 @@ export const adminRouter = createTRPCRouter({
     }),
 
   getEmployees: adminProcedure
+    .input(getEmployeesInput)
+    .query(async ({ ctx, input }) => {
+      const { search, limit, offset, dateRange, currency } = input;
+
+      const users = await ctx.db.user.findMany({
+        where: {
+          OR: [
+            { login: { contains: search, mode: 'insensitive' } },
+            { firstName: { contains: search, mode: 'insensitive' } },
+            { lastName: { contains: search, mode: 'insensitive' } },
+          ],
+        },
+        include: {
+          gateTransactions: {
+            where: {
+              createdAt: {
+                gte: dateRange.from,
+                lte: dateRange.to,
+              },
+            },
+          },
+          P2PTransaction: {
+            where: {
+              createdAt: {
+                gte: dateRange.from,
+                lte: dateRange.to,
+              },
+              processed: true,
+              status: "completed"
+            },
+          },
+          employeeExpenses: {
+            where: {
+              createdAt: {
+                gte: dateRange.from,
+                lte: dateRange.to,
+              },
+            },
+          },
+          comments: true,
+        },
+        take: limit,
+        skip: offset,
+      });
+
+      const result = await Promise.all(users.map(async (user) => {
+        const grossProfit = calculateGrossProfit(user.gateTransactions, user.P2PTransaction);
+        const salary = grossProfit * user.salaryPercentage;
+
+        return {
+          ...user,
+          grossProfit: currency === 'RUB' ? grossProfit * 90 : grossProfit,
+          salary: currency === 'RUB' ? salary * 90 : salary,
+          commentsCount: user.comments.length,
+          scamErrorsCount: user.employeeExpenses.filter(e => e.type === 'SCAM').length,
+        };
+      }));
+
+      return result;
+    }),
+
+  getEmployee: adminProcedure
     .input(
       z.object({
-        search: z.string().optional(),
-        limit: z.number().optional(),
-        offset: z.number().optional(),
-        dateRange: z.object({
-          from: z.string(),
-          to: z.string(),
-        }).optional(),
+        id: z.number(),
       }),
     )
     .query(async ({ ctx, input }) => {
-      try {
-        const where = {
-          ...(input.search
-            ? {
-                OR: [
-                  { firstName: { contains: input.search, mode: "insensitive" } },
-                  { lastName: { contains: input.search, mode: "insensitive" } },
-                ],
-              }
-            : {}),
-        };
-
-        const users = await ctx.db.user.findMany({
-          where,
-          take: input.limit,
-          skip: input.offset,
-          include: {
-            comments: {
-              orderBy: { createdAt: 'desc' },
-              include: {
-                author: true
-              }
+      const user = await ctx.db.user.findUnique({
+        where: { id: input.id },
+        include: {
+          comments: true,
+          employeeExpenses: true,
+          WorkTime: {
+            orderBy: {
+              startTime: 'desc',
             },
-            employeeExpenses: true,
-            workTime: {
-              orderBy: { startTime: 'desc' },
-              take: 1,
-              include: {
-                report: true
-              }
-            }
-          }
-        });
+            take: 1,
+          },
+        },
+      });
+      return user;
+    }),
 
-        const dateRange = input.dateRange
-          ? {
-              from: new Date(input.dateRange.from),
-              to: new Date(input.dateRange.to),
-            }
-          : undefined;
+  getEmployeeComments: adminProcedure
+    .input(
+      z.object({
+        employeeId: z.number(),
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      return await ctx.db.employeeComment.findMany({
+        where: {
+          userId: input.employeeId,
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+      });
+    }),
 
-        const employeeData = await Promise.all(
-          users.map(async (user) => {
-            const [p2pTransactions, gateTransactions, matchTransactions] = await Promise.all([
-              ctx.db.p2PTransaction.findMany({
-                where: {
-                  userId: user.id,
-                  ...(dateRange
-                    ? {
-                        createdAt: {
-                          gte: dateRange.from,
-                          lte: dateRange.to,
-                        },
-                      }
-                    : {}),
-                },
-              }),
-              ctx.db.gateTransaction.findMany({
-                where: {
-                  userId: user.id,
-                  ...(dateRange
-                    ? {
-                        createdAt: {
-                          gte: dateRange.from,
-                          lte: dateRange.to,
-                        },
-                      }
-                    : {}),
-                },
-              }),
-              ctx.db.transactionMatch.count({
-                where: {
-                  userId: user.id,
-                  ...(dateRange
-                    ? {
-                        createdAt: {
-                          gte: dateRange.from,
-                          lte: dateRange.to,
-                        },
-                      }
-                    : {}),
-                },
-              }),
-            ]);
-
-            // Calculate gross profit
-            const grossProfit = calculateEmployeeRevenue(gateTransactions, p2pTransactions);
-            const salary = grossProfit * (user.salaryPercentage || 0);
-
-            return {
-              ...user,
-              p2pTransactions: p2pTransactions.length,
-              gateTransactions: gateTransactions.length,
-              matchTransactions,
-              lastWorkTime: user.workTime[0],
-              grossProfit,
-              salary
-            };
-          }),
-        );
-
-        return employeeData;
-      } catch (error) {
-        console.error("Error in getEmployees:", error);
-        throw error;
-      }
+  getEmployeeExpenses: adminProcedure
+    .input(
+      z.object({
+        employeeId: z.number(),
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      const expenses = await ctx.db.employeeExpense.findMany({
+        where: {
+          userId: input.employeeId,
+        },
+        orderBy: {
+          date: 'desc',
+        },
+      });
+      return expenses;
     }),
 
   updateCommissionRate: adminProcedure
@@ -321,29 +371,27 @@ export const adminRouter = createTRPCRouter({
     )
     .query(async ({ ctx, input }) => {
       const { employeeId } = input;
-      const { from, to } = {
-        from: new Date(input.dateRange.from),
-        to: new Date(input.dateRange.to),
-      };
+      const dates = getDateRangeFromInput(input.dateRange);
 
       const employee = await db.user.findUnique({
         where: { id: employeeId },
         include: {
           gateTransactions: {
             where: {
-              createdAt: { gte: from, lte: to },
+              createdAt: { gte: dates.from, lte: dates.to },
               status: 1, // Assuming 1 means completed
             },
           },
           P2PTransaction: {
             where: {
-              completedAt: { gte: from, lte: to },
+              completedAt: { gte: dates.from, lte: dates.to },
               status: "completed",
+              processed: true
             },
           },
           UserSession: {
             where: {
-              startTime: { gte: from, lte: to },
+              startTime: { gte: dates.from, lte: dates.to },
             },
           },
         },
@@ -356,7 +404,7 @@ export const adminRouter = createTRPCRouter({
         });
       }
 
-      const workTime = await calculateWorkTime(ctx.db, employeeId, from, to);
+      const workTime = await calculateWorkTime(ctx.db, employeeId, dates.from, dates.to);
       const ordersCount =
         employee.gateTransactions.length + employee.P2PTransaction.length;
       const revenue = calculateEmployeeRevenue(
@@ -397,16 +445,13 @@ export const adminRouter = createTRPCRouter({
     )
     .query(async ({ ctx, input }) => {
       const { employeeId } = input;
-      const { from, to } = {
-        from: new Date(input.dateRange.from),
-        to: new Date(input.dateRange.to),
-      };
+      const dates = getDateRangeFromInput(input.dateRange);
 
       const [gateTransactions, p2pTransactions] = await Promise.all([
         db.gateTransaction.findMany({
           where: {
             userId: employeeId,
-            createdAt: { gte: from, lte: to },
+            createdAt: { gte: dates.from, lte: dates.to },
             OR: input.search
               ? [
                   { transactionId: { contains: input.search, mode: "insensitive" } },
@@ -419,7 +464,7 @@ export const adminRouter = createTRPCRouter({
         db.p2PTransaction.findMany({
           where: {
             userId: employeeId,
-            completedAt: { gte: from, lte: to },
+            completedAt: { gte: dates.from, lte: dates.to },
             OR: input.search
               ? [
                   { telegramId: { contains: input.search, mode: "insensitive" } },
@@ -435,7 +480,7 @@ export const adminRouter = createTRPCRouter({
         ...gateTransactions.map((tx) => ({
           id: tx.id,
           type: "Gate",
-          amount: tx.amountUsdt,
+          amount: tx.totalUsdt,
           currency: "USDT",
           status: tx.status === 1 ? "completed" : "pending",
           createdAt: tx.createdAt,
@@ -552,13 +597,10 @@ export const adminRouter = createTRPCRouter({
       }),
     )
     .query(async ({ ctx, input }) => {
-      const { from, to } = {
-        from: new Date(input.dateRange.from),
-        to: new Date(input.dateRange.to),
-      };
+      const dates = getDateRangeFromInput(input.dateRange);
 
-      const revenue = await calculateTotalRevenue(from, to);
-      const totalExpenses = calculateTotalExpenses(input.expenses, { from, to });
+      const revenue = await calculateTotalRevenue(dates.from, dates.to);
+      const totalExpenses = calculateTotalExpenses(input.expenses, { from: dates.from, to: dates.to });
       const netProfit = revenue - totalExpenses;
 
       return {
@@ -936,6 +978,7 @@ export const adminRouter = createTRPCRouter({
             where: {
               completedAt: { gte: startDate, lte: endDate },
               status: "completed",
+              processed: true
             },
           },
           UserSession: {
@@ -998,46 +1041,42 @@ export const adminRouter = createTRPCRouter({
     .input(
       z.object({
         employeeId: z.number(),
-        dateRange: z.object({
-          from: z.string(),
-          to: z.string(),
-        }),
+        dateRange: dateRangeInput,
       }),
     )
     .query(async ({ ctx, input }) => {
-      const { from, to } = {
-        from: new Date(input.dateRange.from),
-        to: new Date(input.dateRange.to),
-      };
+      const { employeeId } = input;
+      const dates = getDateRangeFromInput(input.dateRange);
 
       const employee = await ctx.db.user.findUnique({
-        where: { id: input.employeeId },
+        where: { id: employeeId },
         include: {
           gateTransactions: {
             where: {
-              createdAt: { gte: from, lte: to },
+              createdAt: { gte: dates.from, lte: dates.to },
               status: 1,
             },
           },
           P2PTransaction: {
             where: {
-              completedAt: { gte: from, lte: to },
+              completedAt: { gte: dates.from, lte: dates.to },
               status: "completed",
+              processed: true
             },
           },
           WorkTime: {
             where: {
-              startTime: { gte: from, lte: to },
+              startTime: { gte: dates.from, lte: dates.to },
             },
           },
           UserSession: {
             where: {
-              startTime: { gte: from, lte: to },
+              startTime: { gte: dates.from, lte: dates.to },
             },
           },
           employeeExpenses: {
             where: {
-              createdAt: { gte: from, lte: to },
+              createdAt: { gte: dates.from, lte: dates.to },
             },
           },
           comments: {
@@ -1053,7 +1092,7 @@ export const adminRouter = createTRPCRouter({
         });
       }
 
-      const workTime = await calculateWorkTime(ctx.db, input.employeeId, from, to);
+      const workTime = await calculateWorkTime(ctx.db, employeeId, dates.from, dates.to);
       const ordersCount = employee.gateTransactions.length + employee.P2PTransaction.length;
       const revenue = calculateEmployeeRevenue(employee.gateTransactions, employee.P2PTransaction);
       const expenses = employee.employeeExpenses.reduce((sum, exp) => sum + exp.amount, 0);
@@ -1269,264 +1308,10 @@ export const adminRouter = createTRPCRouter({
       return result;
     }),
 
-  getEmployees: protectedProcedure
-    .input(
-      z.object({
-        search: z.string(),
-        limit: z.number(),
-        dateRange: dateRangeInput,
-      }),
-    )
-    .query(async ({ ctx, input }) => {
-      const employees = await ctx.db.user.findMany({
-        where: {
-          OR: [
-            { firstName: { contains: input.search, mode: "insensitive" } },
-            { lastName: { contains: input.search, mode: "insensitive" } },
-            { telegramId: { contains: input.search, mode: "insensitive" } },
-          ],
-        },
-        take: input.limit,
-      });
-
-      const employeesWithStats = await Promise.all(
-        employees.map(async (employee) => {
-          const { from, to } = {
-            from: new Date(input.dateRange.from),
-            to: new Date(input.dateRange.to),
-          };
-
-          const [p2pCount, gateCount, matchCount, scamExpenses, errorExpenses, workTime] = await Promise.all([
-            ctx.db.p2PTransaction.count({
-              where: {
-                userId: employee.id,
-                createdAt: {
-                  gte: from,
-                  lte: to,
-                },
-              },
-            }),
-            ctx.db.gateTransaction.count({
-              where: {
-                userId: employee.id,
-                createdAt: {
-                  gte: from,
-                  lte: to,
-                },
-              },
-            }),
-            ctx.db.transactionMatch.count({
-              where: {
-                userId: employee.id,
-                createdAt: {
-                  gte: from,
-                  lte: to,
-                },
-              },
-            }),
-            ctx.db.employeeExpense.aggregate({
-              where: {
-                userId: employee.id,
-                type: 'SCAM',
-                createdAt: {
-                  gte: from,
-                  lte: to,
-                },
-              },
-              _sum: { amount: true },
-            }),
-            ctx.db.employeeExpense.aggregate({
-              where: {
-                userId: employee.id,
-                type: 'ERROR',
-                createdAt: {
-                  gte: from,
-                  lte: to,
-                },
-              },
-              _sum: { amount: true },
-            }),
-            calculateWorkTime(ctx.db, employee.id, from, to),
-          ]);
-
-          return {
-            ...employee,
-            p2pCount,
-            gateCount,
-            matchCount,
-            scamExpenses: scamExpenses._sum.amount ?? 0,
-            errorExpenses: errorExpenses._sum.amount ?? 0,
-            workTime,
-          };
-        }),
-      );
-
-      return employeesWithStats;
-    }),
-
-  updateEmployee: protectedProcedure
-    .input(
-      z.object({
-        id: z.number(),
-        firstName: z.string(),
-        middleName: z.string().optional(),
-        lastName: z.string(),
-      }),
-    )
-    .mutation(async ({ ctx, input }) => {
-      return ctx.db.user.update({
-        where: { id: input.id },
-        data: {
-          firstName: input.firstName,
-          middleName: input.middleName,
-          lastName: input.lastName,
-        },
-      });
-    }),
-
-  updateDeposit: protectedProcedure
-    .input(
-      z.object({
-        id: z.number(),
-        deposit: z.number(),
-      }),
-    )
-    .mutation(async ({ ctx, input }) => {
-      return ctx.db.user.update({
-        where: { id: input.id },
-        data: {
-          deposit: input.deposit,
-        },
-      });
-    }),
-
-  addEmployeeExpense: protectedProcedure
-    .input(
-      z.object({
-        userId: z.number(),
-        amount: z.number(),
-        currency: z.string(),
-        type: z.enum(["SCAM", "ERROR"]),
-        date: z.date(),
-        description: z.string().optional(),
-      }),
-    )
-    .mutation(async ({ ctx, input }) => {
-      return ctx.db.employeeExpense.create({
-        data: input,
-      });
-    }),
-
-  getEmployeeExpenses: protectedProcedure
-    .input(
-      z.object({
-        userId: z.number(),
-        dateRange: dateRangeInput,
-      }),
-    )
-    .query(async ({ ctx, input }) => {
-      const { from, to } = {
-        from: new Date(input.dateRange.from),
-        to: new Date(input.dateRange.to),
-      };
-
-      return ctx.db.employeeExpense.findMany({
-        where: {
-          userId: input.userId,
-          createdAt: {
-            gte: from,
-            lte: to,
-          },
-        },
-        orderBy: {
-          createdAt: "desc",
-        },
-      });
-    }),
-
-  createAppeal: protectedProcedure
-    .input(
-      z.object({
-        userId: z.number(),
-        gateId: z.string(),
-        employeeComment: z.string().optional(),
-      }),
-    )
-    .mutation(async ({ ctx, input }) => {
-      return ctx.db.appeal.create({
-        data: {
-          ...input,
-          status: "PENDING",
-        },
-      });
-    }),
-
-  updateAppeal: protectedProcedure
-    .input(
-      z.object({
-        id: z.number(),
-        status: z.enum(["PENDING", "APPROVED", "REJECTED"]),
-        adminComment: z.string().optional(),
-        isFinalized: z.boolean(),
-      }),
-    )
-    .mutation(async ({ ctx, input }) => {
-      return ctx.db.appeal.update({
-        where: { id: input.id },
-        data: input,
-      });
-    }),
-
-  getEmployeeAppeals: protectedProcedure
-    .input(
-      z.object({
-        userId: z.number(),
-        dateRange: dateRangeInput,
-      }),
-    )
-    .query(async ({ ctx, input }) => {
-      const { from, to } = {
-        from: new Date(input.dateRange.from),
-        to: new Date(input.dateRange.to),
-      };
-
-      return ctx.db.appeal.findMany({
-        where: {
-          userId: input.userId,
-          createdAt: {
-            gte: from,
-            lte: to,
-          },
-        },
-        orderBy: {
-          createdAt: "desc",
-        },
-      });
-    }),
-
-  getEmployee: protectedProcedure
-    .input(
-      z.object({
-        id: z.number(),
-      }),
-    )
-    .query(async ({ ctx, input }) => {
-      const employee = await ctx.db.user.findUnique({
-        where: { id: input.id },
-      });
-
-      if (!employee) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "Employee not found",
-        });
-      }
-
-      return employee;
-    }),
-
   getUserWorkTimes: adminProcedure
-    .input(z.object({ userId: z.number() }))
+    .input(z.object({
+      userId: z.number(),
+    }))
     .query(async ({ ctx, input }) => {
       return ctx.db.workTime.findMany({
         where: { userId: input.userId },
@@ -1557,23 +1342,7 @@ export const adminRouter = createTRPCRouter({
       });
     }),
 
-  updateEmployee: adminProcedure
-    .input(
-      z.object({
-        id: z.number(),
-        firstName: z.string().optional(),
-        lastName: z.string().optional(),
-        commissionRate: z.number().optional(),
-        initialBalance: z.number().optional(),
-      }),
-    )
-    .mutation(async ({ ctx, input }) => {
-      const { id, ...data } = input;
-      return ctx.db.user.update({
-        where: { id },
-        data,
-      });
-    }),
+
 
   updateEmployeePhoto: adminProcedure
     .input(
@@ -1617,36 +1386,13 @@ export const adminRouter = createTRPCRouter({
       });
     }),
 
-  addEmployeeComment: adminProcedure
-    .input(
-      z.object({
-        userId: z.number(),
-        content: z.string(),
-      }),
-    )
-    .mutation(async ({ ctx, input }) => {
-      return await ctx.db.employeeComment.create({
-        data: {
-          userId: input.userId,
-          content: input.content,
-        },
-      });
-    }),
 
   addEmployeeExpense: adminProcedure
-    .input(
-      z.object({
-        userId: z.number(),
-        amount: z.number(),
-        type: z.enum(["SCAM", "ERROR"]),
-        description: z.string(),
-        currency: z.enum(["RUB", "USDT"]),
-      }),
-    )
+    .input(addExpenseInput)
     .mutation(async ({ ctx, input }) => {
       return await ctx.db.employeeExpense.create({
         data: {
-          userId: input.userId,
+          userId: input.employeeId,
           amount: input.amount,
           type: input.type,
           description: input.description,
@@ -1663,128 +1409,14 @@ export const adminRouter = createTRPCRouter({
       }),
     )
     .query(async ({ ctx, input }) => {
-      return await ctx.db.employeeComment.findMany({
+      const comments = await ctx.db.employeeComment.findMany({
         where: { userId: input.userId },
         orderBy: { createdAt: "desc" },
       });
+      return comments;
     }),
 
-  getEmployeeExpenses: adminProcedure
-    .input(
-      z.object({
-        userId: z.number(),
-        dateRange: dateRangeInput,
-      }),
-    )
-    .query(async ({ ctx, input }) => {
-      const { from, to } = dateRangeSchema.parse(input.dateRange);
-      return await ctx.db.employeeExpense.findMany({
-        where: {
-          userId: input.userId,
-          createdAt: {
-            gte: from,
-            lte: to,
-          },
-        },
-        orderBy: { createdAt: "desc" },
-      });
-    }),
 
-  getEmployees: adminProcedure
-    .input(
-      z.object({
-        search: z.string().optional(),
-        limit: z.number().optional(),
-        offset: z.number().optional(),
-        dateRange: z.object({
-          from: z.string(),
-          to: z.string(),
-        }).optional(),
-      }),
-    )
-    .query(async ({ ctx, input }) => {
-      const { from, to } = input.dateRange
-        ? dateRangeSchema.parse(input.dateRange)
-        : { from: new Date(0), to: new Date() };
-
-      const where = {
-        ...(input.search
-          ? {
-              OR: [
-                { firstName: { contains: input.search, mode: "insensitive" } },
-                { lastName: { contains: input.search, mode: "insensitive" } },
-                { telegramId: { contains: input.search, mode: "insensitive" } },
-              ],
-            }
-          : {}),
-      };
-
-      const users = await ctx.db.user.findMany({
-        where,
-        take: input.limit,
-        skip: input.offset,
-        orderBy: { id: "asc" },
-      });
-
-      const employeeData = await Promise.all(
-        users.map(async (user) => {
-          const [
-            workTime,
-            gateTransactions,
-            p2pTransactions,
-            expenses,
-            comments,
-            matches,
-          ] = await Promise.all([
-            calculateWorkTime(ctx.db, user.id, from, to),
-            ctx.db.gateTransaction.findMany({
-              where: {
-                userId: user.id,
-                createdAt: { gte: from, lte: to },
-              },
-            }),
-            ctx.db.p2PTransaction.findMany({
-              where: {
-                userId: user.id,
-                createdAt: { gte: from, lte: to },
-              },
-            }),
-            ctx.db.employeeExpense.findMany({
-              where: {
-                userId: user.id,
-                createdAt: { gte: from, lte: to },
-              },
-            }),
-            ctx.db.employeeComment.count({
-              where: { userId: user.id },
-            }),
-            ctx.db.transactionMatch.count({
-              where: {
-                userId: user.id,
-                createdAt: { gte: from, lte: to },
-              },
-            }),
-          ]);
-
-          return {
-            ...user,
-            workTime,
-            p2pTransactions: p2pTransactions.length,
-            gateTransactions: gateTransactions.length,
-            matchTransactions: matches,
-            scamExpenses: expenses
-              .filter((e) => e.type === "SCAM")
-              .reduce((sum, e) => sum + e.amount, 0),
-            errorExpenses: expenses
-              .filter((e) => e.type === "ERROR")
-              .reduce((sum, e) => sum + e.amount, 0),
-            commentsCount: comments,
-          };
-        }),
-      );
-
-      return employeeData;
-    }),
 
   getEmployeeWorkTime: adminProcedure
     .input(z.object({
@@ -1799,6 +1431,100 @@ export const adminRouter = createTRPCRouter({
         }
       });
       return workTimes;
+    }),
+
+  addComment: adminProcedure
+    .input(
+      z.object({
+        userId: z.number(),
+        content: z.string(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      return await ctx.db.comment.create({
+        data: {
+          userId: input.userId,
+          content: input.content,
+          authorId: ctx.session.user.id,
+        },
+      });
+    }),
+
+  deleteComment: adminProcedure
+    .input(z.object({ id: z.number() }))
+    .mutation(async ({ ctx, input }) => {
+      return await ctx.db.comment.delete({
+        where: { id: input.id }
+      });
+    }),
+
+  editComment: adminProcedure
+    .input(z.object({
+      id: z.number(),
+      content: z.string()
+    }))
+    .mutation(async ({ ctx, input }) => {
+      return await ctx.db.comment.update({
+        where: { id: input.id },
+        data: { content: input.content }
+      });
+    }),
+
+  deleteExpense: adminProcedure
+    .input(z.object({ id: z.number() }))
+    .mutation(async ({ ctx, input }) => {
+      return await ctx.db.employeeExpense.delete({
+        where: { id: input.id }
+      });
+    }),
+
+  editExpense: adminProcedure
+    .input(z.object({
+      id: z.number(),
+      amount: z.number(),
+      type: z.enum(["SCAM", "ERROR"]),
+      description: z.string(),
+      currency: z.string()
+    }))
+    .mutation(async ({ ctx, input }) => {
+      return await ctx.db.employeeExpense.update({
+        where: { id: input.id },
+        data: {
+          amount: input.amount,
+          type: input.type,
+          description: input.description,
+          currency: input.currency
+        }
+      });
+    }),
+
+
+
+  calculateEmployeeRevenue: adminProcedure
+    .input(
+      z.object({
+        gateTransactions: z.array(z.object({
+          totalUsdt: z.number(),
+        })),
+        p2pTransactions: z.array(z.object({
+          amount: z.number(),
+        })),
+      }),
+    )
+    .query(({ input }) => {
+      const { gateTransactions, p2pTransactions } = input;
+      
+      // Считаем прибыль от Gate транзакций
+      const gateRevenue = gateTransactions.reduce((sum, tx) => {
+        return sum + (tx.totalUsdt || 0);
+      }, 0);
+
+      // Считаем прибыль от P2P транзакций
+      const p2pRevenue = p2pTransactions.reduce((sum, tx) => {
+        return sum + (tx.amount || 0);
+      }, 0);
+
+      return gateRevenue + p2pRevenue;
     }),
 });
 
@@ -1822,6 +1548,7 @@ async function getMetricVariables(
       userId: employeeId,
       completedAt: { gte: startDate, lte: endDate },
       status: "completed",
+      processed: true
     },
   });
 
@@ -1894,6 +1621,7 @@ async function calculateTotalRevenue(from: Date, to: Date) {
       where: {
         completedAt: { gte: from, lte: to },
         status: "completed",
+        processed: true
       },
     });
     return (
@@ -1936,11 +1664,11 @@ function calculateTotalWorkTime(sessions) {
 function calculateEmployeeRevenue(gateTransactions, p2pTransactions) {
   const gateFee = 0.009; // 0.9%
   const gateRevenue = gateTransactions.reduce(
-    (sum, tx) => sum + tx.amountUsdt * gateFee,
+    (sum, tx) => sum + (tx.totalUsdt || 0) * gateFee,
     0,
   );
   const p2pRevenue = p2pTransactions.reduce(
-    (sum, tx) => sum + (tx.amount * tx.price - tx.totalRub) / tx.price,
+    (sum, tx) => sum + ((tx.amount || 0) - (tx.totalRub || 0) / (tx.price || 1)),
     0,
   );
   return gateRevenue + p2pRevenue;

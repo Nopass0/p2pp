@@ -5,12 +5,17 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-export function formatCurrency(amount: number | null | undefined): string {
-  if (amount === null || amount === undefined) return "0 USDT";
-  return `${amount.toLocaleString("ru-RU", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })} USDT`;
+export function formatCurrency(amount: number | null | undefined, currency: 'USDT' | 'RUB' = 'USDT'): string {
+  if (amount === null || amount === undefined) return currency === 'USDT' ? '0 USDT' : '0 ₽';
+  
+  const formatter = new Intl.NumberFormat('ru-RU', {
+    minimumFractionDigits: currency === 'USDT' ? 2 : 0,
+    maximumFractionDigits: currency === 'USDT' ? 2 : 0,
+  });
+
+  return currency === 'USDT' 
+    ? `${formatter.format(amount)} USDT`
+    : `${formatter.format(amount)} ₽`;
 }
 
 export function calculateWorkTime(firstMatchTime: Date | null, lastMatchTime: Date | null): string {

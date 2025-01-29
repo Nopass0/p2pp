@@ -436,9 +436,7 @@ export default function AdminParserPage() {
             <CardTitle className="flex items-center gap-4">
               <p>Административная панель</p>
               <div className="ml-10 flex items-center gap-4">
-                <div className="flex items-center rounded-full bg-primary px-2 py-1 text-xs text-primary-foreground">
-                  <p>Средневзвешенный спред: {averageRevenue} RUB</p>
-                </div>
+
               </div>
             </CardTitle>
             <div className="flex items-center gap-4">

@@ -13,14 +13,39 @@ import {
 } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { CameraIcon, PencilIcon, ChevronLeftIcon, ChevronRightIcon } from "lucide-react"
+import { CameraIcon, PencilIcon, ChevronLeftIcon, ChevronRightIcon, Trash } from "lucide-react"
 import Image from "next/image"
 import { formatCurrency } from "@/lib/utils"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Textarea } from "@/components/ui/textarea"
 import { format } from "date-fns"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 const ITEMS_PER_PAGE = 6;
+
+interface Employee {
+  id: number;
+  login: string;
+  firstName: string | null;
+  lastName: string | null;
+  middleName: string | null;
+  deposit: number;
+  salaryPercentage: number;
+  gateTransactions: any[];
+  p2pTransactions: any[];
+  grossProfit: number;
+  salary: number;
+  commentsCount?: number;
+  scamErrorsCount?: number;
+}
 
 interface EmployeeTableProps {
   limit?: number
@@ -37,6 +62,7 @@ export function EmployeeTable({ limit = 10, search = "", dateRange }: EmployeeTa
 
   const [page, setPage] = useState(1);
   const [searchState, setSearchState] = useState(search);
+  const [selectedCurrency, setSelectedCurrency] = useState<'USDT' | 'RUB'>('USDT');
   const [showPhotoDialog, setShowPhotoDialog] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState<number | null>(null);
   const [newPhotoUrl, setNewPhotoUrl] = useState("");
@@ -48,29 +74,54 @@ export function EmployeeTable({ limit = 10, search = "", dateRange }: EmployeeTa
   const [newExpense, setNewExpense] = useState({
     amount: 0,
     type: "SCAM",
-    description: ""
+    description: "",
+    currency: "USDT"
   });
   const [showWorkTimeDialog, setShowWorkTimeDialog] = useState(false);
   const [selectedWorkTime, setSelectedWorkTime] = useState<any>(null);
+  const [editingComment, setEditingComment] = useState<{ id: number; content: string } | null>(null);
+  const [editingExpense, setEditingExpense] = useState<any>(null);
 
-  const effectiveDateRange = useMemo(
-    () => ({
-      from: dateRange?.from ? new Date(dateRange.from).toISOString() : new Date(0).toISOString(),
-      to: dateRange?.to ? new Date(dateRange.to).toISOString() : new Date().toISOString(),
-    }),
-    [dateRange?.from, dateRange?.to],
+  // Create a default date range if none provided
+  const effectiveDateRange = useMemo(() => {
+    const defaultFrom = new Date(0);
+    const defaultTo = new Date();
+    
+    return {
+      from: dateRange?.from ? new Date(dateRange.from) : defaultFrom,
+      to: dateRange?.to ? new Date(dateRange.to) : defaultTo
+    };
+  }, [dateRange]);
+
+  const { data: employees, isLoading } = api.admin.getEmployees.useQuery(
+    {
+      search: searchState,
+      limit: ITEMS_PER_PAGE,
+      offset: (page - 1) * ITEMS_PER_PAGE,
+      dateRange: {
+        from: effectiveDateRange.from.toISOString(),
+        to: effectiveDateRange.to.toISOString()
+      },
+      currency: selectedCurrency
+    },
+    {
+      keepPreviousData: true,
+    }
   );
-
-  const { data, isLoading } = api.admin.getEmployees.useQuery({
-    search: searchState,
-    limit: ITEMS_PER_PAGE,
-    offset: (page - 1) * ITEMS_PER_PAGE,
-    dateRange: effectiveDateRange,
-  });
 
   const { data: workTimeData } = api.admin.getEmployeeWorkTime.useQuery(
     { userId: selectedEmployee || 0 },
     { enabled: !!selectedEmployee }
+  );
+
+  const { data: comments, refetch: refetchComments } = api.admin.getEmployeeComments.useQuery(
+    { employeeId: selectedEmployee ?? 0 },
+    { enabled: !!selectedEmployee }
+  );
+
+  const { data: employeeExpenses, refetch: refetchExpenses } = api.admin.getEmployeeExpenses.useQuery(
+    { employeeId: selectedEmployee || 0 },
+    { enabled: showExpensesDialog && !!selectedEmployee }
   );
 
   const updateDeposit = api.admin.updateEmployeeDeposit.useMutation({
@@ -88,8 +139,8 @@ export function EmployeeTable({ limit = 10, search = "", dateRange }: EmployeeTa
   });
 
   useEffect(() => {
-    console.log(data);
-  }, [data]);
+    console.log(employees);
+  }, [employees]);
 
   const updatePhoto = api.admin.updateEmployeePhoto.useMutation({
     onSuccess: () => {
@@ -101,17 +152,42 @@ export function EmployeeTable({ limit = 10, search = "", dateRange }: EmployeeTa
 
   const addComment = api.admin.addEmployeeComment.useMutation({
     onSuccess: () => {
-      utils.admin.getEmployees.invalidate();
+      refetchComments();
       setNewComment("");
-      setShowCommentsDialog(false);
-    }
+    },
   });
 
   const addExpense = api.admin.addEmployeeExpense.useMutation({
     onSuccess: () => {
       utils.admin.getEmployees.invalidate();
-      setNewExpense({ amount: 0, type: "SCAM", description: "" });
+      setNewExpense({ amount: 0, type: "SCAM", description: "", currency: "USDT" });
       setShowExpensesDialog(false);
+    }
+  });
+
+  const deleteComment = api.admin.deleteComment.useMutation({
+    onSuccess: () => {
+      utils.admin.getEmployees.invalidate();
+    }
+  });
+
+  const editCommentMutation = api.admin.editComment.useMutation({
+    onSuccess: () => {
+      utils.admin.getEmployees.invalidate();
+      setEditingComment(null);
+    }
+  });
+
+  const deleteExpense = api.admin.deleteExpense.useMutation({
+    onSuccess: () => {
+      utils.admin.getEmployees.invalidate();
+    }
+  });
+
+  const editExpenseMutation = api.admin.editExpense.useMutation({
+    onSuccess: () => {
+      utils.admin.getEmployees.invalidate();
+      setEditingExpense(null);
     }
   });
 
@@ -124,26 +200,85 @@ export function EmployeeTable({ limit = 10, search = "", dateRange }: EmployeeTa
   };
 
   const formatTransactions = (employee: any) => {
-    return `${employee.p2pTransactions || 0}/${employee.gateTransactions || 0}/${employee.matchTransactions || 0}`;
+    const p2pCount = Array.isArray(employee.P2PTransaction) ? employee.P2PTransaction.filter((tx: any) => tx.processed).length : 0;
+    const gateCount = Array.isArray(employee.gateTransactions) ? employee.gateTransactions.length : 0;
+    const matchCount = Array.isArray(employee.TransactionMatch) ? employee.TransactionMatch.length : 0;
+    return `${p2pCount}/${gateCount}/${matchCount}`;
   };
+
+  const formatCurrency = (value: number, currency: string) => {
+    return new Intl.NumberFormat('ru-RU', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(value);
+  };
+
+  const calculateGrossProfit = (employee: any) => {
+    let profit = 0;
+    
+    // P2P transactions
+    if (Array.isArray(employee.P2PTransaction)) {
+      employee.P2PTransaction.forEach((tx: any) => {
+        profit += Number(tx.amount) || 0;
+      });
+    }
+
+    // Gate transactions
+    if (Array.isArray(employee.gateTransactions)) {
+      employee.gateTransactions.forEach((tx: any) => {
+        profit += Number(tx.totalUsdt) || 0;
+      });
+    }
+
+    return profit;
+  };
+
+  const calculateSalary = (employee: any) => {
+    const grossProfit = calculateGrossProfit(employee);
+    return grossProfit * (Number(employee.salaryPercentage) || 0);
+  };
+
+  useEffect(() => {
+    if (selectedEmployee && showCommentsDialog) {
+      refetchComments();
+    }
+  }, [selectedEmployee, showCommentsDialog]);
+
+  useEffect(() => {
+    if (selectedEmployee && showExpensesDialog) {
+      refetchExpenses();
+    }
+  }, [selectedEmployee, showExpensesDialog]);
 
   if (isLoading) {
     return <div className="text-center py-4">Loading...</div>;
   }
 
-  if (!data || data.length === 0) {
+  if (!employees || employees.length === 0) {
     return <div className="text-center py-4">No employees found</div>;
   }
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-between">
+      <div className="flex items-center justify-between py-4">
         <Input
           placeholder="Поиск сотрудников..."
           value={searchState}
           onChange={(e) => setSearchState(e.target.value)}
           className="max-w-sm"
         />
+        <Select
+          value={selectedCurrency}
+          onValueChange={(value: 'USDT' | 'RUB') => setSelectedCurrency(value)}
+        >
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="Выберите валюту" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="USDT">USDT</SelectItem>
+            <SelectItem value="RUB">RUB</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       <div className="overflow-x-auto">
@@ -154,18 +289,17 @@ export function EmployeeTable({ limit = 10, search = "", dateRange }: EmployeeTa
               <TableHead>ФИО</TableHead>
               <TableHead>Логин</TableHead>
               <TableHead>ЗП Коэф.</TableHead>
-              <TableHead>Заказы (P2P/Gate/Match)</TableHead>
+              <TableHead>Заказы</TableHead>
               <TableHead>Время работы</TableHead>
               <TableHead>Валовая прибыль</TableHead>
               <TableHead>ЗП</TableHead>
               <TableHead>Депозит</TableHead>
-              <TableHead>Скам/Ошибки</TableHead>
-              <TableHead>Комментарии</TableHead>
+              <TableHead>Комментарии/Скам/Ошибки</TableHead>
               <TableHead>Действия</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {data.map((employee) => (
+            {employees.map((employee: Employee) => (
               <TableRow key={employee.id} className="cursor-pointer hover:bg-muted/50">
                 <TableCell>
                   <div 
@@ -218,7 +352,13 @@ export function EmployeeTable({ limit = 10, search = "", dateRange }: EmployeeTa
                     )}
                   </div>
                 </TableCell>
-                <TableCell>{formatTransactions(employee)}</TableCell>
+                <TableCell>
+                  <div className="flex flex-col gap-1">
+                    <span>P2P: {employee.p2pTransactions?.length || 0}</span>
+                    <span>Gate: {employee.gateTransactions?.length || 0}</span>
+                    <span>Match: {employee.matchTransactionsCount || 0}</span>
+                  </div>
+                </TableCell>
                 <TableCell>
                   <div 
                     className="cursor-pointer hover:text-blue-500"
@@ -230,8 +370,8 @@ export function EmployeeTable({ limit = 10, search = "", dateRange }: EmployeeTa
                     {formatWorkTime(employee)}
                   </div>
                 </TableCell>
-                <TableCell>{formatCurrency(employee.grossProfit || 0)}</TableCell>
-                <TableCell>{formatCurrency(employee.salary || 0)}</TableCell>
+                <TableCell>{formatCurrency(employee.grossProfit || 0, selectedCurrency)}</TableCell>
+                <TableCell>{formatCurrency(employee.salary || 0, selectedCurrency)}</TableCell>
                 <TableCell>
                   <div className="flex items-center gap-2">
                     {editingDeposit?.id === employee.id ? (
@@ -244,7 +384,7 @@ export function EmployeeTable({ limit = 10, search = "", dateRange }: EmployeeTa
                       />
                     ) : (
                       <>
-                        {formatCurrency(employee.deposit || 0)}
+                        {formatCurrency(employee.deposit || 0, selectedCurrency)}
                         <Button variant="ghost" size="sm" onClick={() => setEditingDeposit({ id: employee.id, value: employee.deposit || 0 })}>
                           <PencilIcon className="h-4 w-4" />
                         </Button>
@@ -253,25 +393,27 @@ export function EmployeeTable({ limit = 10, search = "", dateRange }: EmployeeTa
                   </div>
                 </TableCell>
                 <TableCell>
-                  <div className="flex items-center gap-2">
-                    {employee.scamExpenses || 0}/{employee.errorExpenses || 0}
-                    <Button variant="ghost" size="sm" onClick={() => {
-                      setSelectedEmployee(employee.id);
-                      setShowExpensesDialog(true);
-                    }}>
-                      <PencilIcon className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-2">
-                    {employee.commentsCount || 0}
-                    <Button variant="ghost" size="sm" onClick={() => {
-                      setSelectedEmployee(employee.id);
-                      setShowCommentsDialog(true);
-                    }}>
-                      <PencilIcon className="h-4 w-4" />
-                    </Button>
+                  <div className="flex flex-col gap-1">
+                    <div className="flex items-center gap-2">
+                      <span>Comments: {employee.commentsCount || 0}</span>
+                      <Button variant="ghost" size="sm" onClick={() => {
+                        setSelectedEmployee(employee.id);
+                        setShowCommentsDialog(true);
+                        refetchComments();
+                      }}>
+                        <PencilIcon className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span>Scam/Errors: {employeeExpenses?.lenght || 0}</span>
+                      <Button variant="ghost" size="sm" onClick={() => {
+                        setSelectedEmployee(employee.id);
+                        setShowExpensesDialog(true);
+                        refetchExpenses();
+                      }}>
+                        <PencilIcon className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
                 </TableCell>
                 <TableCell>
@@ -298,12 +440,12 @@ export function EmployeeTable({ limit = 10, search = "", dateRange }: EmployeeTa
           <ChevronLeftIcon className="h-4 w-4" />
         </Button>
         <span className="py-2">
-          Page {page} of {Math.ceil((data?.length || 0) / ITEMS_PER_PAGE)}
+          Page {page} of {Math.ceil((employees?.length || 0) / ITEMS_PER_PAGE)}
         </span>
         <Button
           variant="outline"
-          onClick={() => setPage(p => Math.min(Math.ceil((data?.length || 0) / ITEMS_PER_PAGE), p + 1))}
-          disabled={page === Math.ceil((data?.length || 0) / ITEMS_PER_PAGE)}
+          onClick={() => setPage(p => Math.min(Math.ceil((employees?.length || 0) / ITEMS_PER_PAGE), p + 1))}
+          disabled={page === Math.ceil((employees?.length || 0) / ITEMS_PER_PAGE)}
         >
           <ChevronRightIcon className="h-4 w-4" />
         </Button>
@@ -375,136 +517,139 @@ export function EmployeeTable({ limit = 10, search = "", dateRange }: EmployeeTa
         </DialogContent>
       </Dialog>
 
-      <Dialog open={showExpensesDialog} onOpenChange={setShowExpensesDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Управление расходами</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <Input
-                type="number"
-                placeholder="Сумма"
-                value={newExpense.amount}
-                onChange={(e) => setNewExpense({ ...newExpense, amount: parseFloat(e.target.value) })}
-              />
-              <select
-                className="border rounded p-2"
-                value={newExpense.type}
-                onChange={(e) => setNewExpense({ ...newExpense, type: e.target.value as "SCAM" | "ERROR" })}
-              >
-                <option value="SCAM">SCAM</option>
-                <option value="ERROR">ERROR</option>
-              </select>
-            </div>
-            <Textarea
-              placeholder="Описание"
-              value={newExpense.description}
-              onChange={(e) => setNewExpense({ ...newExpense, description: e.target.value })}
-            />
-            <Button
-              onClick={() => {
-                if (selectedEmployee) {
-                  addExpense.mutate({
-                    userId: selectedEmployee,
-                    ...newExpense,
-                  });
-                }
-              }}
-            >
-              Добавить расход
-            </Button>
-
-            <div className="mt-4">
-              <h3 className="font-semibold mb-2">История расходов</h3>
-              <div className="space-y-2">
-                {data
-                  .find(e => e.id === selectedEmployee)
-                  ?.employeeExpenses?.map((expense: any) => (
-                    <div key={expense.id} className="border p-2 rounded">
-                      <div className="flex justify-between">
-                        <span>{expense.type}</span>
-                        <span>{formatCurrency(expense.amount)}</span>
-                      </div>
-                      <div className="text-sm text-gray-500">
-                        {expense.description}
-                      </div>
-                      <div className="text-xs text-gray-400">
-                        {format(new Date(expense.createdAt), 'dd.MM.yyyy HH:mm')}
-                      </div>
-                    </div>
-                  ))}
-              </div>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
+      {/* Comments Dialog */}
       <Dialog open={showCommentsDialog} onOpenChange={setShowCommentsDialog}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent>
           <DialogHeader>
             <DialogTitle>Комментарии</DialogTitle>
           </DialogHeader>
-          <div>
+          <ScrollArea className="h-[400px] pr-4">
+            <div className="space-y-4">
+              {comments?.map((comment) => (
+                <div key={comment.id} className="border-b pb-2">
+                  <p className="whitespace-pre-wrap">{comment.content}</p>
+                  <div className="flex justify-between items-center mt-1 text-sm text-muted-foreground">
+                    <span>{format(new Date(comment.createdAt), "dd.MM.yyyy HH:mm")}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </ScrollArea>
+          <div className="space-y-4 mt-4">
             <Textarea
               value={newComment}
               onChange={(e) => setNewComment(e.target.value)}
-              placeholder="Новый комментарий..."
-              className="min-h-[100px]"
+              placeholder="Добавить комментарий..."
             />
-            <Button
-              className="mt-2"
-              onClick={() => {
-                if (selectedEmployee && newComment) {
-                  addComment.mutate({
-                    userId: selectedEmployee,
-                    text: newComment
-                  });
-                }
+            <Button 
+              onClick={async () => {
+                if (!selectedEmployee || !newComment.trim()) return;
+                await addComment.mutateAsync({
+                  employeeId: selectedEmployee,
+                  content: newComment,
+                });
               }}
+              disabled={!newComment.trim()}
             >
               Добавить
             </Button>
           </div>
-          <div className="mt-4 max-h-[400px] overflow-y-auto">
-            <h3 className="font-semibold mb-2">История комментариев</h3>
-            <div className="space-y-2">
-              {data
-                .find(e => e.id === selectedEmployee)
-                ?.comments?.map((comment: any) => (
-                  <div key={comment.id} className="border p-3 rounded">
-                    <div className="text-sm text-gray-600 mb-1">
-                      {format(new Date(comment.createdAt), "dd.MM.yyyy HH:mm")}
-                      {comment.author && ` • ${comment.author.firstName} ${comment.author.lastName}`}
-                    </div>
-                    <div className="whitespace-pre-wrap">{comment.text}</div>
-                  </div>
-                ))}
-            </div>
-          </div>
         </DialogContent>
       </Dialog>
 
-      <Dialog open={showWorkTimeDialog} onOpenChange={setShowWorkTimeDialog}>
+      {/* Expenses Dialog */}
+      <Dialog open={showExpensesDialog} onOpenChange={setShowExpensesDialog}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>История времени работы</DialogTitle>
+            <DialogTitle>Скам/Ошибки</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 max-h-[500px] overflow-y-auto">
-            {workTimeData?.map((wt: any) => (
-              <div key={wt.id} className="border p-3 rounded">
-                <div className="font-semibold">
-                  {format(new Date(wt.startTime), "dd.MM.yyyy HH:mm")} - 
-                  {wt.endTime ? format(new Date(wt.endTime), "dd.MM.yyyy HH:mm") : "В работе"}
-                </div>
-                {wt.report && (
-                  <div className="mt-2 text-sm text-gray-600">
-                    <div className="font-medium">Отчет:</div>
-                    <div className="whitespace-pre-wrap">{wt.report.content}</div>
-                  </div>
-                )}
+          <div className="space-y-4">
+            <div className="grid gap-2">
+              <div className="flex gap-2">
+                <Input
+                  type="number"
+                  value={newExpense.amount}
+                  onChange={(e) => setNewExpense({ ...newExpense, amount: parseFloat(e.target.value) })}
+                  placeholder="Сумма"
+                />
+                <Select
+                  value={newExpense.type}
+                  onValueChange={(value) => setNewExpense({ ...newExpense, type: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Тип" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="SCAM">Скам</SelectItem>
+                    <SelectItem value="ERROR">Ошибка</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select
+                  value={newExpense.currency}
+                  onValueChange={(value: 'USDT' | 'RUB') => setNewExpense({ ...newExpense, currency: value })}
+                >
+                  <SelectTrigger className="w-[120px]">
+                    <SelectValue placeholder="Валюта" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="USDT">USDT</SelectItem>
+                    <SelectItem value="RUB">RUB</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
-            ))}
+              <Textarea
+                value={newExpense.description}
+                onChange={(e) => setNewExpense({ ...newExpense, description: e.target.value })}
+                placeholder="Описание..."
+              />
+              <Button onClick={async () => {
+                if (!selectedEmployee || !newExpense.amount || !newExpense.description.trim()) return;
+                await addExpense.mutateAsync({
+                  employeeId: selectedEmployee,
+                  ...newExpense
+                });
+                setNewExpense({
+                  amount: 0,
+                  type: "SCAM",
+                  description: "",
+                  currency: "USDT"
+                });
+                await refetchExpenses();
+              }}>
+                Добавить
+              </Button>
+            </div>
+            <ScrollArea className="h-[400px]">
+              {employeeExpenses?.map((expense) => (
+                <div key={expense.id} className="flex items-start gap-2 p-4 border-b">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Badge variant={expense.type === 'SCAM' ? 'destructive' : 'secondary'}>
+                        {expense.type === 'SCAM' ? 'Скам' : 'Ошибка'}
+                      </Badge>
+                      <span className="font-medium">{formatCurrency(expense.amount, expense.currency)}</span>
+                    </div>
+                    <p className="whitespace-pre-wrap mb-2">{expense.description}</p>
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <span>{format(new Date(expense.createdAt), "dd.MM.yyyy")}</span>
+                      <span>•</span>
+                      <span>{format(new Date(expense.createdAt), "HH:mm")}</span>
+                    </div>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      if (window.confirm("Удалить эту запись?")) {
+                        deleteExpense.mutate({ expenseId: expense.id });
+                      }
+                    }}
+                  >
+                    <Trash className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+            </ScrollArea>
           </div>
         </DialogContent>
       </Dialog>
