@@ -352,6 +352,8 @@ export const userRouter = createTRPCRouter({
 
     return {
       matchCount: matchTransactions,
+      p2pCount: p2pTransactions.lenght,
+      idexCount: gateTransactions.length,
       salary,
     };
   }),

@@ -15,7 +15,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { CameraIcon, PencilIcon, ChevronLeftIcon, ChevronRightIcon, Trash } from "lucide-react"
 import Image from "next/image"
-import { formatCurrency } from "@/lib/utils"
+import { cn, formatCurrency } from "@/lib/utils"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Textarea } from "@/components/ui/textarea"
 import { format } from "date-fns"
@@ -29,7 +29,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
-const ITEMS_PER_PAGE = 6;
+const ITEMS_PER_PAGE = 24;
 
 interface Employee {
   id: number;
@@ -40,11 +40,17 @@ interface Employee {
   deposit: number;
   salaryPercentage: number;
   gateTransactions: any[];
-  p2pTransactions: any[];
+  P2PTransaction: any[];
+  matchTransactionsCount?: number;
+  matchTransactions: any[];
   grossProfit: number;
   salary: number;
   commentsCount?: number;
   scamErrorsCount?: number;
+  errorsCount?: number;
+  employeeExpenses: any[];
+
+  workTimes: any[];
 }
 
 interface EmployeeTableProps {
@@ -102,7 +108,8 @@ export function EmployeeTable({ limit = 10, search = "", dateRange }: EmployeeTa
         from: effectiveDateRange.from.toISOString(),
         to: effectiveDateRange.to.toISOString()
       },
-      currency: selectedCurrency
+      currency: selectedCurrency,
+      includeExpenses: true
     },
     {
       keepPreviousData: true,
@@ -115,14 +122,11 @@ export function EmployeeTable({ limit = 10, search = "", dateRange }: EmployeeTa
   );
 
   const { data: comments, refetch: refetchComments } = api.admin.getEmployeeComments.useQuery(
-    { employeeId: selectedEmployee ?? 0 },
+    { userId: selectedEmployee ?? 0 },
     { enabled: !!selectedEmployee }
   );
 
-  const { data: employeeExpenses, refetch: refetchExpenses } = api.admin.getEmployeeExpenses.useQuery(
-    { employeeId: selectedEmployee || 0 },
-    { enabled: showExpensesDialog && !!selectedEmployee }
-  );
+
 
   const updateDeposit = api.admin.updateEmployeeDeposit.useMutation({
     onSuccess: () => {
@@ -157,15 +161,20 @@ export function EmployeeTable({ limit = 10, search = "", dateRange }: EmployeeTa
     },
   });
 
-  const addExpense = api.admin.addEmployeeExpense.useMutation({
+  const addExpense = api.admin.addExpense.useMutation({
     onSuccess: () => {
       utils.admin.getEmployees.invalidate();
-      setNewExpense({ amount: 0, type: "SCAM", description: "", currency: "USDT" });
+      setNewExpense({
+        amount: 0,
+        type: "SCAM",
+        description: "",
+        currency: "USDT"
+      });
       setShowExpensesDialog(false);
     }
   });
 
-  const deleteComment = api.admin.deleteComment.useMutation({
+  const deleteExpense = api.admin.deleteExpense.useMutation({
     onSuccess: () => {
       utils.admin.getEmployees.invalidate();
     }
@@ -178,12 +187,6 @@ export function EmployeeTable({ limit = 10, search = "", dateRange }: EmployeeTa
     }
   });
 
-  const deleteExpense = api.admin.deleteExpense.useMutation({
-    onSuccess: () => {
-      utils.admin.getEmployees.invalidate();
-    }
-  });
-
   const editExpenseMutation = api.admin.editExpense.useMutation({
     onSuccess: () => {
       utils.admin.getEmployees.invalidate();
@@ -192,11 +195,12 @@ export function EmployeeTable({ limit = 10, search = "", dateRange }: EmployeeTa
   });
 
   const formatWorkTime = (employee: any) => {
-    if (!employee.lastWorkTime) return "Нет данных";
-    if (!employee.lastWorkTime.endTime) {
-      return `В работе с ${format(new Date(employee.lastWorkTime.startTime), "dd.MM.yyyy HH:mm")}`;
+    if (!employee.workTimes || employee.workTimes.length === 0) return "Нет данных";
+    const lastWorkTime = employee.workTimes[employee.workTimes.length - 1];
+    if (!lastWorkTime.endTime) {
+      return `В работе с ${format(new Date(lastWorkTime.startTime), "HH:mm dd.MM")}`;
     }
-    return `${format(new Date(employee.lastWorkTime.startTime), "dd.MM.yyyy HH:mm")} - ${format(new Date(employee.lastWorkTime.endTime), "dd.MM.yyyy HH:mm")}`;
+    return `${format(new Date(lastWorkTime.startTime), "HH:mm")}-${format(new Date(lastWorkTime.endTime), "HH:mm")}`;
   };
 
   const formatTransactions = (employee: any) => {
@@ -246,7 +250,7 @@ export function EmployeeTable({ limit = 10, search = "", dateRange }: EmployeeTa
 
   useEffect(() => {
     if (selectedEmployee && showExpensesDialog) {
-      refetchExpenses();
+      // No need to refetch since we have the data
     }
   }, [selectedEmployee, showExpensesDialog]);
 
@@ -353,10 +357,10 @@ export function EmployeeTable({ limit = 10, search = "", dateRange }: EmployeeTa
                   </div>
                 </TableCell>
                 <TableCell>
-                  <div className="flex flex-col gap-1">
-                    <span>P2P: {employee.p2pTransactions?.length || 0}</span>
-                    <span>Gate: {employee.gateTransactions?.length || 0}</span>
-                    <span>Match: {employee.matchTransactionsCount || 0}</span>
+                  <div className={cn("flex flex-row gap-1", employee.P2PTransaction?.length === employee.gateTransactions?.length && employee.p2pTransactions?.length === employee.matchTransactionsCount ? "bg-green-500/50 rounded-lg p-1 items-center flex justify-center" : "bg-muted rounded-lg p-1 items-center flex justify-center")} >
+                    <span> {employee.P2PTransaction?.length || 0}</span>/
+                    <span >{employee.gateTransactions?.length || 0}</span>/
+                    <span> {employee.matchTransactionsCount || 0}</span>
                   </div>
                 </TableCell>
                 <TableCell>
@@ -405,11 +409,10 @@ export function EmployeeTable({ limit = 10, search = "", dateRange }: EmployeeTa
                       </Button>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span>Scam/Errors: {employeeExpenses?.lenght || 0}</span>
+                      <span>Scam/Errors: {employee.employeeExpenses?.length || 0}</span>
                       <Button variant="ghost" size="sm" onClick={() => {
                         setSelectedEmployee(employee.id);
                         setShowExpensesDialog(true);
-                        refetchExpenses();
                       }}>
                         <PencilIcon className="h-4 w-4" />
                       </Button>
@@ -593,7 +596,7 @@ export function EmployeeTable({ limit = 10, search = "", dateRange }: EmployeeTa
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="USDT">USDT</SelectItem>
-                    <SelectItem value="RUB">RUB</SelectItem>
+                    {/* <SelectItem value="RUB">RUB</SelectItem> */}
                   </SelectContent>
                 </Select>
               </div>
@@ -603,54 +606,116 @@ export function EmployeeTable({ limit = 10, search = "", dateRange }: EmployeeTa
                 placeholder="Описание..."
               />
               <Button onClick={async () => {
-                if (!selectedEmployee || !newExpense.amount || !newExpense.description.trim()) return;
+                if (!selectedEmployee) return;
+                
                 await addExpense.mutateAsync({
                   employeeId: selectedEmployee,
-                  ...newExpense
-                });
-                setNewExpense({
-                  amount: 0,
-                  type: "SCAM",
-                  description: "",
+                  amount: newExpense.amount,
+                  type: newExpense.type as "SCAM" | "ERROR",
+                  description: newExpense.description,
                   currency: "USDT"
                 });
-                await refetchExpenses();
               }}>
-                Добавить
+                Add
               </Button>
             </div>
             <ScrollArea className="h-[400px]">
-              {employeeExpenses?.map((expense) => (
+              {selectedEmployee && employees.find((employee) => employee.id === selectedEmployee)?.employeeExpenses?.map((expense) => (
                 <div key={expense.id} className="flex items-start gap-2 p-4 border-b">
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-2">
                       <Badge variant={expense.type === 'SCAM' ? 'destructive' : 'secondary'}>
-                        {expense.type === 'SCAM' ? 'Скам' : 'Ошибка'}
+                        {expense.type}
                       </Badge>
-                      <span className="font-medium">{formatCurrency(expense.amount, expense.currency)}</span>
+                      <span className="font-medium">
+                        {formatCurrency(expense.amount, expense.currency)}
+                      </span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setEditingExpense(expense);
+                        }}
+                      >
+                        <PencilIcon className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          deleteExpense.mutate({ id: expense.id });
+                        }}
+                      >
+                        <Trash className="h-4 w-4" />
+                      </Button>
                     </div>
-                    <p className="whitespace-pre-wrap mb-2">{expense.description}</p>
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <span>{format(new Date(expense.createdAt), "dd.MM.yyyy")}</span>
-                      <span>•</span>
-                      <span>{format(new Date(expense.createdAt), "HH:mm")}</span>
+                    <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+                      {expense.description}
+                    </p>
+                    <div className="flex items-center gap-2 mt-2 text-xs text-muted-foreground">
+                      <span>{format(new Date(expense.createdAt), "dd.MM.yyyy HH:mm")}</span>
                     </div>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      if (window.confirm("Удалить эту запись?")) {
-                        deleteExpense.mutate({ expenseId: expense.id });
-                      }
-                    }}
-                  >
-                    <Trash className="h-4 w-4" />
-                  </Button>
                 </div>
               ))}
             </ScrollArea>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Work Time Dialog */}
+      <Dialog open={showWorkTimeDialog} onOpenChange={setShowWorkTimeDialog}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>История работы</DialogTitle>
+          </DialogHeader>
+          <ScrollArea className="h-[400px] pr-4">
+            <div className="space-y-4">
+              {selectedEmployee && employees.find((employee) => employee.id === selectedEmployee)?.workTimes?.map((workTime) => (
+                <div key={workTime.id} className="border-b pb-4">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <div className="font-medium">
+                        {format(new Date(workTime.startTime), "dd.MM.yyyy")}
+                      </div>
+                      <div className="text-muted-foreground">
+                        {format(new Date(workTime.startTime), "HH:mm")} - {workTime.endTime ? format(new Date(workTime.endTime), "HH:mm") : "В работе"}
+                      </div>
+                      {workTime.duration && (
+                        <div className="text-sm text-muted-foreground">
+                          Длительность: {Math.round(workTime.duration * 24 * 60)} мин
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  {workTime.report && (
+                    <div className="mt-2">
+                      <div className="text-sm font-medium">Отчет:</div>
+                      <p className="text-sm whitespace-pre-wrap">{workTime.report.content}</p>
+                      {workTime.report.files && workTime.report.files.length > 0 && (
+                        <div className="mt-2">
+                          <div className="text-sm font-medium">Файлы:</div>
+                          <div className="flex flex-wrap gap-2">
+                            {workTime.report.files.map((file) => (
+                              <a
+                                key={file.id}
+                                href={`/${file.path}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-sm text-blue-500 hover:underline"
+                              >
+                                {file.filename}
+                              </a>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </ScrollArea>
         </DialogContent>
       </Dialog>
     </div>

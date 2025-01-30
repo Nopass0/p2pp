@@ -11,7 +11,7 @@ export function DashboardStats() {
 
   return (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-      <Card>
+      <Card> 
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">
             Количество заказов
@@ -19,9 +19,9 @@ export function DashboardStats() {
           <ClipboardList className="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold">{todayStats?.matchCount ?? 0}</div>
+          <div className="text-2xl font-bold">{todayStats?.p2pCount ?? 0}/{todayStats?.idexCount ?? 0}/{todayStats?.matchCount ?? 0}</div>
           <p className="text-xs text-muted-foreground">
-            Количество Match транзакций за сегодня
+            Количество P2P/IDEX/Match транзакций за сегодня
           </p>
         </CardContent>
       </Card>
@@ -49,7 +49,7 @@ export function DashboardStats() {
             {workTime ?? "00:00 - 00:00"}
           </div>
           <p className="text-xs text-muted-foreground">
-            Сегодняшняя активность
+            Последняя активность
           </p>
         </CardContent>
       </Card>

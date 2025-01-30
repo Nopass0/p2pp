@@ -62,7 +62,8 @@ const getEmployeesInput = z.object({
   limit: z.number().default(10),
   offset: z.number().default(0),
   dateRange: dateRangeSchema,
-  currency: z.enum(['USDT', 'RUB']).default('USDT')
+  currency: z.enum(['USDT', 'RUB']).default('USDT'),
+  includeExpenses: z.boolean().default(false)
 });
 
 const addExpenseInput = z.object({
@@ -70,7 +71,7 @@ const addExpenseInput = z.object({
   amount: z.number(),
   type: z.enum(["SCAM", "ERROR"]),
   description: z.string(),
-  currency: z.enum(["USDT", "RUB"]).default("USDT")
+  currency: z.enum(["USDT"]).default("USDT")
 });
 
 async function calculateWorkTime(
@@ -227,59 +228,106 @@ export const adminRouter = createTRPCRouter({
   getEmployees: adminProcedure
     .input(getEmployeesInput)
     .query(async ({ ctx, input }) => {
-      const { search, limit, offset, dateRange, currency } = input;
+      const { search, limit, offset, dateRange, currency, includeExpenses } = input;
 
       const users = await ctx.db.user.findMany({
         where: {
+          // NOT: {
+          //   login: "admin"
+          // },
           OR: [
-            { login: { contains: search, mode: 'insensitive' } },
-            { firstName: { contains: search, mode: 'insensitive' } },
-            { lastName: { contains: search, mode: 'insensitive' } },
-          ],
+            {
+              login: {
+                contains: search,
+                mode: "insensitive"
+              }
+            },
+            {
+              firstName: {
+                contains: search,
+                mode: "insensitive"
+              }
+            },
+            {
+              lastName: {
+                contains: search,
+                mode: "insensitive"
+              }
+            }
+          ]
         },
         include: {
           gateTransactions: {
             where: {
               createdAt: {
                 gte: dateRange.from,
-                lte: dateRange.to,
-              },
-            },
+                lte: dateRange.to
+              }
+            }
           },
           P2PTransaction: {
             where: {
               createdAt: {
                 gte: dateRange.from,
-                lte: dateRange.to,
-              },
-              processed: true,
-              status: "completed"
-            },
+                lte: dateRange.to
+              }
+            }
           },
-          employeeExpenses: {
+          TransactionMatch: {
             where: {
               createdAt: {
                 gte: dateRange.from,
-                lte: dateRange.to,
-              },
-            },
+                lte: dateRange.to
+              }
+            }
           },
           comments: true,
+          employeeExpenses: includeExpenses ? true : false
         },
         take: limit,
         skip: offset,
+        orderBy: {
+          id: "asc"
+        }
       });
+
+
+
 
       const result = await Promise.all(users.map(async (user) => {
         const grossProfit = calculateGrossProfit(user.gateTransactions, user.P2PTransaction);
         const salary = grossProfit * user.salaryPercentage;
 
+        const workTimes = await ctx.db.workTime.findMany({
+          where: {
+            userId: user.id
+          },
+          select: {
+            id: true,
+            startTime: true,
+            endTime: true,
+            duration: true,
+            report: {
+              select: {
+                id: true,
+                files: true,
+                content: true,
+                createdAt: true,
+
+              }
+            }
+          }
+        })
+
         return {
           ...user,
           grossProfit: currency === 'RUB' ? grossProfit * 90 : grossProfit,
+          workTimes: workTimes,
           salary: currency === 'RUB' ? salary * 90 : salary,
           commentsCount: user.comments.length,
           scamErrorsCount: user.employeeExpenses.filter(e => e.type === 'SCAM').length,
+          matchTransactionsCount: user.TransactionMatch.length,
+          matchTransactions: user.TransactionMatch
         };
       }));
 
@@ -1387,7 +1435,7 @@ export const adminRouter = createTRPCRouter({
     }),
 
 
-  addEmployeeExpense: adminProcedure
+  addExpense: adminProcedure
     .input(addExpenseInput)
     .mutation(async ({ ctx, input }) => {
       return await ctx.db.employeeExpense.create({
@@ -1396,9 +1444,9 @@ export const adminRouter = createTRPCRouter({
           amount: input.amount,
           type: input.type,
           description: input.description,
-          date: new Date(),
           currency: input.currency,
-        },
+          date: new Date()
+        }
       });
     }),
 
@@ -1473,8 +1521,10 @@ export const adminRouter = createTRPCRouter({
   deleteExpense: adminProcedure
     .input(z.object({ id: z.number() }))
     .mutation(async ({ ctx, input }) => {
-      return await ctx.db.employeeExpense.delete({
-        where: { id: input.id }
+      await ctx.db.employeeExpense.delete({
+        where: {
+          id: input.id
+        }
       });
     }),
 

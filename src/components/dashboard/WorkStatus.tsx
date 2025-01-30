@@ -63,25 +63,29 @@ export function WorkStatus() {
   };
 
   const handleSubmitReport = async () => {
-    if (!reportContent.trim() || selectedFiles.length === 0) {
+    if (!reportContent.trim()) {
       return;
     }
 
     setIsLoading(true);
-    const formData = new FormData();
-    selectedFiles.forEach((file) => {
-      formData.append("files", file);
-    });
-
     try {
-      // Upload files first
-      const uploadRes = await fetch("/api/upload", {
-        method: "POST",
-        body: formData,
-      });
-      const uploadedFiles = await uploadRes.json();
+      let uploadedFiles = [];
+      
+      // Only upload files if any were selected
+      if (selectedFiles.length > 0) {
+        const formData = new FormData();
+        selectedFiles.forEach((file) => {
+          formData.append("files", file);
+        });
 
-      // Then submit the report with file paths
+        const uploadRes = await fetch("/api/upload", {
+          method: "POST",
+          body: formData,
+        });
+        uploadedFiles = await uploadRes.json();
+      }
+
+      // Submit the report with file paths if any were uploaded
       await stopWork.mutateAsync({
         reportContent,
         files: uploadedFiles.map((file: { filename: string; path: string }) => ({
@@ -182,7 +186,7 @@ export function WorkStatus() {
           <DialogFooter>
             <Button
               onClick={handleSubmitReport}
-              disabled={isLoading || !reportContent.trim() || selectedFiles.length === 0}
+              disabled={isLoading || !reportContent.trim()}
             >
               {isLoading ? "Отправка..." : "Подтвердить"}
             </Button>
