@@ -43,6 +43,7 @@ model User {
   employeeExpenses    EmployeeExpense[]
   appeals             Appeal[]
   WorkTime            WorkTime[]
+  currentTgPhone String?
   comments            EmployeeComment[]
 
   @@index([login])
@@ -141,6 +142,7 @@ model GateCookie {
   id          Int      @id @default(autoincrement())
   userId      Int
   cookie      String
+  idexId      String?
   isActive    Boolean  @default(true)
   lastChecked DateTime @default(now())
   createdAt   DateTime @default(now())
@@ -160,6 +162,7 @@ model GateTransaction {
   amountUsdt       Float
   totalRub         Float
   totalUsdt        Float
+  idexId      String?
   status           Int
   bankName         String?
   bankLabel        String?
@@ -292,6 +295,7 @@ model P2PTransaction {
   userId           Int
   telegramId       String
   status           String
+  currentTgPhone String?
   amount           Float
   totalRub         Float
   price            Float

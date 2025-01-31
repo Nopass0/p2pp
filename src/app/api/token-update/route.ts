@@ -22,23 +22,22 @@ export async function POST(request: Request) {
 
     console.log("Request body:", JSON.stringify(body, null, 2));
 
-    const { deviceToken, tgToken, gateCookie } = body;
+    const { device_token, telegram_token, gate_cookies, phone, idex_id } = body;
 
-    console.log("Received data:");
-    console.log("Device Token:", deviceToken);
-    console.log("Telegram Token:", tgToken?.substring(0, 20) + "...");
-    console.log(
-      "Gate Cookie:",
-      typeof gateCookie === "string"
-        ? //@ts-ignore
+    // Convert gate_cookies array to string format if needed
+    const cookieString = Array.isArray(gate_cookies) 
+      ? gate_cookies.map(cookie => `${cookie.name}=${cookie.value}`).join('; ')
+      : gate_cookies;
 
-          gateCookie.substring(0, 20) + "..."
-        : //@ts-ignore
+    console.log("Received data:", {
+      device_token,
+      telegram_token: telegram_token?.substring(0, 20) + "...",
+      gate_cookies: typeof cookieString === "string" ? cookieString.substring(0, 20) + "..." : "...",
+      phone,
+      idex_id
+    });
 
-          JSON.stringify(gateCookie).substring(0, 20) + "...",
-    );
-
-    if (!deviceToken || !tgToken || !gateCookie) {
+    if (!device_token || !telegram_token || !cookieString) {
       console.log("Missing required fields");
       return NextResponse.json(
         {
@@ -54,12 +53,12 @@ export async function POST(request: Request) {
 
     // Find the user by deviceToken
     const deviceTokenRecord = await prisma.deviceToken.findUnique({
-      where: { token: deviceToken },
+      where: { token: device_token },
       include: { user: true },
     });
 
     if (!deviceTokenRecord) {
-      console.log("No user found for device token:", deviceToken);
+      console.log("No user found for device token:", device_token);
       return NextResponse.json(
         {
           message: "User not found",
@@ -74,46 +73,46 @@ export async function POST(request: Request) {
 
     const user = deviceTokenRecord.user;
 
-    // Update user's tgAuthToken
+    // Update user's tgAuthToken and currentTgPhone
     await prisma.user.update({
       where: { id: user.id },
-      //@ts-ignore
-
-      data: { tgAuthToken: tgToken },
+      data: { 
+        tgAuthToken: telegram_token,
+        currentTgPhone: phone // Update the phone number if provided
+      },
     });
+
+    console.log(`Updated user ${user.id} with new telegram token and phone:`, phone);
 
     // Update or create GateCookie
-    await prisma.gateCookie.upsert({
+    const updatedCookie = await prisma.gateCookie.upsert({
       where: {
-        //@ts-ignore
-
         userId_cookie: {
           userId: user.id,
-          cookie: gateCookie,
+          cookie: cookieString,
         },
       },
-      //@ts-ignore
-
       update: {
         isActive: true,
-        //@ts-ignore
-
         lastChecked: new Date(),
+        idexId: idex_id || undefined // Update idexId if provided
       },
-      //@ts-ignore
-
       create: {
         userId: user.id,
-        cookie: gateCookie,
+        cookie: cookieString,
         isActive: true,
+        idexId: idex_id || undefined // Set idexId if provided
       },
     });
 
-    console.log(`Updated user ${user.id} with new tokens`);
+    console.log(`Updated gate cookie for user ${user.id}:`, {
+      cookieId: updatedCookie.id,
+      idexId: updatedCookie.idexId
+    });
 
     return NextResponse.json(
       {
-        message: "Update successful",
+        message: "Tokens updated successfully",
         success: true,
       },
       {
@@ -122,23 +121,14 @@ export async function POST(request: Request) {
       },
     );
   } catch (error) {
-    console.error("Error processing request:", error);
-
-    if (error instanceof Prisma.PrismaClientKnownRequestError) {
-      // The .code property can be accessed in a type-safe manner
-      if (error.code === "P2002") {
-        console.log(
-          "There is a unique constraint violation, a new user cannot be created with this email",
-        );
-      }
-    }
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+    console.error("Error processing request:", { error: errorMessage });
 
     return NextResponse.json(
       {
-        message: "Internal server error",
+        message: "Error processing request",
         success: false,
-        //@ts-ignore
-        error: error instanceof Error ? error.message : "Unknown error",
+        error: errorMessage
       },
       {
         status: 500,
