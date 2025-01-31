@@ -113,7 +113,7 @@ export function EmployeeDetailsDialog({
                     <TableHead>Дата (P2P/IDEX)</TableHead>
                     <TableHead>Телефон (P2P)</TableHead>
                     <TableHead>ID Idex</TableHead>
-                    <TableHead>Сумма P2P</TableHead>
+                    <TableHead>Сумма P2P (И сумма с комиссией)</TableHead>
                     <TableHead>Сумма Gate</TableHead>
                     <TableHead>Прибыль</TableHead>
                   </TableRow>
@@ -127,7 +127,7 @@ export function EmployeeDetailsDialog({
                       </TableCell>
                       <TableCell>{tx.P2PTransaction?.currentTgPhone ?? 'N/A'}</TableCell>
                       <TableCell>{tx.GateTransaction?.idexId ?? 'N/A'}</TableCell>
-                      <TableCell>{(tx.P2PTransaction?.amount ?? 0).toFixed(2)} USDT</TableCell>
+                      <TableCell>{(tx.P2PTransaction?.amount ?? 0).toFixed(2)} USDT ({(tx.P2PTransaction?.amount  * commission ?? 0).toFixed(2)} USDT)</TableCell>
                       <TableCell>{(tx.GateTransaction?.totalUsdt ?? 0).toFixed(2)} USDT</TableCell>
                       <TableCell>
                         {((tx.GateTransaction?.totalUsdt ?? 0) - (tx.P2PTransaction?.amount ?? 0)).toFixed(2)} USDT
