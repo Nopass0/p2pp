@@ -28,6 +28,8 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { DateTimePicker } from "@/components/ui/date-time-picker"
+import { EmployeeDetailsDialog } from "./EmployeeDetailsDialog"
 
 const ITEMS_PER_PAGE = 24;
 
@@ -57,12 +59,12 @@ interface EmployeeTableProps {
   limit?: number
   search?: string
   dateRange?: {
-    from: Date
-    to: Date
+    from: string
+    to: string
   }
 }
 
-export function EmployeeTable({ limit = 10, search = "", dateRange }: EmployeeTableProps) {
+export function EmployeeTable({ limit = 10, search = "" }: EmployeeTableProps) {
   const router = useRouter();
   const utils = api.useContext();
 
@@ -87,6 +89,11 @@ export function EmployeeTable({ limit = 10, search = "", dateRange }: EmployeeTa
   const [selectedWorkTime, setSelectedWorkTime] = useState<any>(null);
   const [editingComment, setEditingComment] = useState<{ id: number; content: string } | null>(null);
   const [editingExpense, setEditingExpense] = useState<any>(null);
+  const [showDetailsDialog, setShowDetailsDialog] = useState(false);
+  const [selectedEmployeeForDetails, setSelectedEmployeeForDetails] = useState<Employee | null>(null);
+
+  const [fromDate, setFromDate] = useState<Date>(new Date(new Date().setHours(0, 0, 0, 0)))
+  const [toDate, setToDate] = useState<Date>(new Date(new Date().setHours(23, 59, 59, 999)))
 
   // Create a default date range if none provided
   const effectiveDateRange = useMemo(() => {
@@ -94,16 +101,16 @@ export function EmployeeTable({ limit = 10, search = "", dateRange }: EmployeeTa
     const defaultTo = new Date();
     
     return {
-      from: dateRange?.from ? new Date(dateRange.from) : defaultFrom,
-      to: dateRange?.to ? new Date(dateRange.to) : defaultTo
+      from: fromDate,
+      to: toDate
     };
-  }, [dateRange]);
+  }, [fromDate, toDate]);
 
   const { data: employees, isLoading } = api.admin.getEmployees.useQuery(
     {
-      search: searchState,
-      limit: ITEMS_PER_PAGE,
+      limit,
       offset: (page - 1) * ITEMS_PER_PAGE,
+      search: searchState,
       dateRange: {
         from: effectiveDateRange.from.toISOString(),
         to: effectiveDateRange.to.toISOString()
@@ -264,13 +271,25 @@ export function EmployeeTable({ limit = 10, search = "", dateRange }: EmployeeTa
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between py-4">
+      <div className="flex items-center space-x-4 mb-4">
         <Input
-          placeholder="Поиск сотрудников..."
+          placeholder="Search by login or name..."
           value={searchState}
           onChange={(e) => setSearchState(e.target.value)}
           className="max-w-sm"
         />
+        <div className="flex items-center space-x-2">
+          <DateTimePicker
+            date={fromDate}
+            setDate={setFromDate}
+            label="From"
+          />
+          <DateTimePicker
+            date={toDate}
+            setDate={setToDate}
+            label="To"
+          />
+        </div>
         <Select
           value={selectedCurrency}
           onValueChange={(value: 'USDT' | 'RUB') => setSelectedCurrency(value)}
@@ -300,6 +319,7 @@ export function EmployeeTable({ limit = 10, search = "", dateRange }: EmployeeTa
               <TableHead>Депозит</TableHead>
               <TableHead>Комментарии/Скам/Ошибки</TableHead>
               <TableHead>Действия</TableHead>
+              <TableHead>Детали</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -427,6 +447,20 @@ export function EmployeeTable({ limit = 10, search = "", dateRange }: EmployeeTa
                   >
                     Details
                   </Button>
+                </TableCell>
+                <TableCell>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => {
+                        setSelectedEmployeeForDetails(employee);
+                        setShowDetailsDialog(true);
+                      }}
+                    >
+                      <PencilIcon className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </TableCell>
               </TableRow>
             ))}
@@ -718,6 +752,23 @@ export function EmployeeTable({ limit = 10, search = "", dateRange }: EmployeeTa
           </ScrollArea>
         </DialogContent>
       </Dialog>
+
+      {selectedEmployeeForDetails && (
+        <EmployeeDetailsDialog
+          isOpen={showDetailsDialog}
+          onClose={() => {
+            setShowDetailsDialog(false);
+            setSelectedEmployeeForDetails(null);
+          }}
+          employee={selectedEmployeeForDetails}
+          fromDate={fromDate}
+          toDate={toDate}
+          onDateChange={(from, to) => {
+            setFromDate(from);
+            setToDate(to);
+          }}
+        />
+      )}
     </div>
   );
 }

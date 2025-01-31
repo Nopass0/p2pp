@@ -58,10 +58,13 @@ const userSearchInput = z.object({
 });
 
 const getEmployeesInput = z.object({
-  search: z.string().default(""),
-  limit: z.number().default(10),
-  offset: z.number().default(0),
-  dateRange: dateRangeSchema,
+  limit: z.number().optional(),
+  offset: z.number().optional(),
+  search: z.string().optional(),
+  dateRange: z.object({
+    from: z.string(),
+    to: z.string()
+  }).optional(),
   currency: z.enum(['USDT', 'RUB']).default('USDT'),
   includeExpenses: z.boolean().default(false)
 });
@@ -228,73 +231,72 @@ export const adminRouter = createTRPCRouter({
   getEmployees: adminProcedure
     .input(getEmployeesInput)
     .query(async ({ ctx, input }) => {
-      const { search, limit, offset, dateRange, currency, includeExpenses } = input;
+      const dates = getDateRangeFromInput(input.dateRange);
+      const limit = input.limit ?? 10;
+      const offset = input.offset ?? 0;
+      const search = input.search ?? "";
 
-      const users = await ctx.db.user.findMany({
-        where: {
-          // NOT: {
-          //   login: "admin"
-          // },
-          OR: [
-            {
-              login: {
-                contains: search,
-                mode: "insensitive"
-              }
+      const where = {
+        isAdmin: true,
+        OR: [
+          { login: { contains: search, mode: 'insensitive' } },
+          { firstName: { contains: search, mode: 'insensitive' } },
+          { lastName: { contains: search, mode: 'insensitive' } },
+        ],
+      };
+
+      const [employees, total] = await Promise.all([
+        ctx.db.user.findMany({
+          where,
+          take: limit,
+          skip: offset,
+          include: {
+            matchTransactions: {
+              where: {
+                createdAt: {
+                  gte: dates.from,
+                  lte: dates.to,
+                },
+              },
+              include: {
+                P2PTransaction: {
+                  select: {
+                    id: true,
+                    amount: true,
+                    currentTgPhone: true,
+                  },
+                },
+                GateTransaction: {
+                  select: {
+                    id: true,
+                    totalUsdt: true,
+                    idexId: true,
+                  },
+                },
+              },
             },
-            {
-              firstName: {
-                contains: search,
-                mode: "insensitive"
-              }
+            P2PTransaction: {
+              where: {
+                createdAt: {
+                  gte: dates.from,
+                  lte: dates.to,
+                },
+              },
             },
-            {
-              lastName: {
-                contains: search,
-                mode: "insensitive"
-              }
-            }
-          ]
-        },
-        include: {
-          gateTransactions: {
-            where: {
-              createdAt: {
-                gte: dateRange.from,
-                lte: dateRange.to
-              }
-            }
+            gateTransactions: {
+              where: {
+                createdAt: {
+                  gte: dates.from,
+                  lte: dates.to,
+                },
+              },
+            },
           },
-          P2PTransaction: {
-            where: {
-              createdAt: {
-                gte: dateRange.from,
-                lte: dateRange.to
-              }
-            }
-          },
-          TransactionMatch: {
-            where: {
-              createdAt: {
-                gte: dateRange.from,
-                lte: dateRange.to
-              }
-            }
-          },
-          comments: true,
-          employeeExpenses: includeExpenses ? true : false
-        },
-        take: limit,
-        skip: offset,
-        orderBy: {
-          id: "asc"
-        }
-      });
+        }),
+        ctx.db.user.count({ where }),
+      ]);
 
-
-
-
-      const result = await Promise.all(users.map(async (user) => {
+      const result = await Promise.all(employees.map(async (user) => {
         const grossProfit = calculateGrossProfit(user.gateTransactions, user.P2PTransaction);
         const salary = grossProfit * user.salaryPercentage;
 
@@ -321,9 +323,9 @@ export const adminRouter = createTRPCRouter({
 
         return {
           ...user,
-          grossProfit: currency === 'RUB' ? grossProfit * 90 : grossProfit,
+          grossProfit: input.currency === 'RUB' ? grossProfit * 90 : grossProfit,
           workTimes: workTimes,
-          salary: currency === 'RUB' ? salary * 90 : salary,
+          salary: input.currency === 'RUB' ? salary * 90 : salary,
           commentsCount: user.comments.length,
           scamErrorsCount: user.employeeExpenses.filter(e => e.type === 'SCAM').length,
           matchTransactionsCount: user.TransactionMatch.length,
