@@ -251,7 +251,7 @@ export const adminRouter = createTRPCRouter({
           take: limit,
           skip: offset,
           include: {
-            matchTransactions: {
+             TransactionMatch: {
               where: {
                 createdAt: {
                   gte: dates.from,
