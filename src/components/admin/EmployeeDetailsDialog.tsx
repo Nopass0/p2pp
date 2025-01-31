@@ -41,7 +41,9 @@ export function EmployeeDetailsDialog({
   const grossIncome = matchedTransactions.reduce((sum: number, tx: any) => 
     sum + (tx.GateTransaction?.totalUsdt ?? 0), 0)
   
-  const grossProfit = grossIncome - grossExpense
+  const commission = 1.009;
+
+  const grossProfit = (grossIncome * commission) - grossExpense
   const profitPercentage = grossExpense ? (grossProfit / grossExpense) * 100 : 0
   const matchedCount = matchedTransactions.length
   const profitPerOrder = matchedCount ? grossProfit / matchedCount : 0
