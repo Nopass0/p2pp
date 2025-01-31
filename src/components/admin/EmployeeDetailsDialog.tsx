@@ -132,7 +132,7 @@ export function EmployeeDetailsDialog({
                       <TableCell>{(tx.P2PTransaction?.amount * commission ?? 0).toFixed(2)} USDT </TableCell>
                       <TableCell>{(tx.GateTransaction?.totalUsdt ?? 0).toFixed(2)} USDT</TableCell>
                       <TableCell>
-                        {((tx.GateTransaction?.totalUsdt ?? 0) - (tx.P2PTransaction?.amount ?? 0)).toFixed(2)} USDT
+                        {((tx.GateTransaction?.totalUsdt ?? 0) - (tx.P2PTransaction?.amount * commission ?? 0)).toFixed(2)} USDT
                       </TableCell>
                     </TableRow>
                   ))}
