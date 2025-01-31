@@ -251,6 +251,8 @@ export const adminRouter = createTRPCRouter({
           take: limit,
           skip: offset,
           include: {
+            comments: true,
+            employeeExpenses: true,
              TransactionMatch: {
               where: {
                 createdAt: {
@@ -297,6 +299,7 @@ export const adminRouter = createTRPCRouter({
       ]);
 
       const result = await Promise.all(employees.map(async (user) => {
+        console.log(user);
         const grossProfit = calculateGrossProfit(user.gateTransactions, user.P2PTransaction);
         const salary = grossProfit * user.salaryPercentage;
 
