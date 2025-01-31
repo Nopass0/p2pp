@@ -35,15 +35,15 @@ export function EmployeeDetailsDialog({
            (gateDate && gateDate >= fromDate && gateDate <= toDate);
   })
 
+  const commission = 1.009;
   const grossExpense = matchedTransactions.reduce((sum: number, tx: any) => 
-    sum + (tx.P2PTransaction?.amount ?? 0), 0)
+    sum + (tx.P2PTransaction?.amount ?? 0), 0) * commission;
   
   const grossIncome = matchedTransactions.reduce((sum: number, tx: any) => 
     sum + (tx.GateTransaction?.totalUsdt ?? 0), 0)
   
-  const commission = 1.009;
 
-  const grossProfit = grossIncome - (grossExpense * commission)
+  const grossProfit = grossIncome - grossExpense;
   const profitPercentage = grossExpense ? (grossProfit / grossExpense) * 100 : 0
   const matchedCount = matchedTransactions.length
   const profitPerOrder = matchedCount ? grossProfit / matchedCount : 0
@@ -86,7 +86,9 @@ export function EmployeeDetailsDialog({
 
         <div className="grid grid-cols-2 gap-4 mb-4">
           <div className="space-y-2">
-            <div>Валовый расход: {grossExpense.toFixed(2)} USDT</div>
+            {/* <div>Валовый расход: {grossExpense.toFixed(2)} USDT</div> */}
+            <div>Валовый расход : {(grossExpense).toFixed(2)} USDT</div>
+
             <div>Валовый доход: {grossIncome.toFixed(2)} USDT</div>
             <div>Валовая прибыль: {grossProfit.toFixed(2)} USDT</div>
             <div>Процент от выручки: {profitPercentage.toFixed(2)}%</div>
@@ -113,7 +115,7 @@ export function EmployeeDetailsDialog({
                     <TableHead>Дата (P2P/IDEX)</TableHead>
                     <TableHead>Телефон (P2P)</TableHead>
                     <TableHead>ID Idex</TableHead>
-                    <TableHead>Сумма P2P (И сумма с комиссией)</TableHead>
+                    <TableHead>Сумма P2P </TableHead>
                     <TableHead>Сумма Gate</TableHead>
                     <TableHead>Прибыль</TableHead>
                   </TableRow>
@@ -127,7 +129,7 @@ export function EmployeeDetailsDialog({
                       </TableCell>
                       <TableCell>{tx.P2PTransaction?.currentTgPhone ?? 'N/A'}</TableCell>
                       <TableCell>{tx.GateTransaction?.idexId ?? 'N/A'}</TableCell>
-                      <TableCell>{(tx.P2PTransaction?.amount ?? 0).toFixed(2)} USDT ({(tx.P2PTransaction?.amount  * commission ?? 0).toFixed(2)} USDT)</TableCell>
+                      <TableCell>{(tx.P2PTransaction?.amount * commission ?? 0).toFixed(2)} USDT </TableCell>
                       <TableCell>{(tx.GateTransaction?.totalUsdt ?? 0).toFixed(2)} USDT</TableCell>
                       <TableCell>
                         {((tx.GateTransaction?.totalUsdt ?? 0) - (tx.P2PTransaction?.amount ?? 0)).toFixed(2)} USDT
