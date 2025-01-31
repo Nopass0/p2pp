@@ -43,7 +43,7 @@ export function EmployeeDetailsDialog({
   
   const commission = 1.009;
 
-  const grossProfit = (grossIncome * commission) - grossExpense
+  const grossProfit = grossIncome - (grossExpense * commission)
   const profitPercentage = grossExpense ? (grossProfit / grossExpense) * 100 : 0
   const matchedCount = matchedTransactions.length
   const profitPerOrder = matchedCount ? grossProfit / matchedCount : 0
