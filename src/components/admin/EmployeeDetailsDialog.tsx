@@ -104,7 +104,7 @@ export function EmployeeDetailsDialog({
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Дата</TableHead>
+                    <TableHead>Дата (P2P/IDEX)</TableHead>
                     <TableHead>Телефон (P2P)</TableHead>
                     <TableHead>ID Idex</TableHead>
                     <TableHead>Сумма P2P</TableHead>
@@ -115,7 +115,7 @@ export function EmployeeDetailsDialog({
                 <TableBody>
                   {matchedTransactions.map((tx: any) => (
                     <TableRow key={tx.id}>
-                      <TableCell>{format(new Date(tx.createdAt), "dd.MM.yyyy HH:mm")}</TableCell>
+                      <TableCell>{format(new Date(tx.P2PTransaction?.completedAt), "dd.MM.yyyy HH:mm")}/{format(new Date(tx.GateTransaction?.approvedAt), "dd.MM.yyyy HH:mm")}</TableCell>
                       <TableCell>{tx.P2PTransaction?.currentTgPhone ?? 'N/A'}</TableCell>
                       <TableCell>{tx.GateTransaction?.idexId ?? 'N/A'}</TableCell>
                       <TableCell>{(tx.P2PTransaction?.amount ?? 0).toFixed(2)} USDT</TableCell>
