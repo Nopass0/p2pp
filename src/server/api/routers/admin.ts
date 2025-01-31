@@ -255,24 +255,28 @@ export const adminRouter = createTRPCRouter({
             employeeExpenses: true,
             TransactionMatch: {
               where: {
-                OR: [
+                AND: [
                   {
-                    P2PTransaction: {
-                      completedAt: {
-                        gte: dates.from,
-                        lte: dates.to,
+                    OR: [
+                      {
+                        P2PTransaction: {
+                          completedAt: {
+                            gte: dates.from,
+                            lte: dates.to,
+                          }
+                        }
                       },
-                    },
-                  },
-                  {
-                    GateTransaction: {
-                      approvedAt: {
-                        gte: dates.from,
-                        lte: dates.to,
-                      },
-                    },
-                  },
-                ],
+                      {
+                        GateTransaction: {
+                          approvedAt: {
+                            gte: dates.from,
+                            lte: dates.to,
+                          }
+                        }
+                      }
+                    ]
+                  }
+                ]
               },
               include: {
                 P2PTransaction: {
@@ -280,6 +284,7 @@ export const adminRouter = createTRPCRouter({
                     id: true,
                     amount: true,
                     currentTgPhone: true,
+                    completedAt: true,
                   },
                 },
                 GateTransaction: {
@@ -287,6 +292,7 @@ export const adminRouter = createTRPCRouter({
                     id: true,
                     totalUsdt: true,
                     idexId: true,
+                    approvedAt: true,
                   },
                 },
               },

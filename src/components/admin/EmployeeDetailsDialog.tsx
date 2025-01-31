@@ -27,9 +27,13 @@ export function EmployeeDetailsDialog({
   if (!employee) return null
 
   // Calculate statistics
-  const matchedTransactions = (employee.matchTransactions || []).filter(
-    (tx: any) => new Date(tx.createdAt) >= fromDate && new Date(tx.createdAt) <= toDate
-  )
+  const matchedTransactions = (employee.matchTransactions || []).filter((tx: any) => {
+    const p2pDate = tx.P2PTransaction?.completedAt ? new Date(tx.P2PTransaction.completedAt) : null;
+    const gateDate = tx.GateTransaction?.approvedAt ? new Date(tx.GateTransaction.approvedAt) : null;
+    
+    return (p2pDate && p2pDate >= fromDate && p2pDate <= toDate) ||
+           (gateDate && gateDate >= fromDate && gateDate <= toDate);
+  })
 
   const grossExpense = matchedTransactions.reduce((sum: number, tx: any) => 
     sum + (tx.P2PTransaction?.amount ?? 0), 0)
@@ -115,7 +119,10 @@ export function EmployeeDetailsDialog({
                 <TableBody>
                   {matchedTransactions.map((tx: any) => (
                     <TableRow key={tx.id}>
-                      <TableCell>{format(new Date(tx.P2PTransaction?.completedAt), "dd.MM.yyyy HH:mm")}/{format(new Date(tx.GateTransaction?.approvedAt), "dd.MM.yyyy HH:mm")}</TableCell>
+                      <TableCell>
+                        {tx.P2PTransaction?.completedAt ? format(new Date(tx.P2PTransaction.completedAt), "dd.MM.yyyy HH:mm") : 'N/A'} /
+                        {tx.GateTransaction?.approvedAt ? format(new Date(tx.GateTransaction.approvedAt), "dd.MM.yyyy HH:mm") : 'N/A'}
+                      </TableCell>
                       <TableCell>{tx.P2PTransaction?.currentTgPhone ?? 'N/A'}</TableCell>
                       <TableCell>{tx.GateTransaction?.idexId ?? 'N/A'}</TableCell>
                       <TableCell>{(tx.P2PTransaction?.amount ?? 0).toFixed(2)} USDT</TableCell>
