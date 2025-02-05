@@ -92,6 +92,7 @@ export function EmployeeTable({ limit = 10, search = "" }: EmployeeTableProps) {
   const [showDetailsDialog, setShowDetailsDialog] = useState(false);
   const [selectedEmployeeForDetails, setSelectedEmployeeForDetails] = useState<Employee | null>(null);
   const [editingName, setEditingName] = useState<{ id: number; firstName: string; lastName: string } | null>(null);
+  const [employeeToDelete, setEmployeeToDelete] = useState<number | null>(null);
 
   const [fromDate, setFromDate] = useState<Date>(new Date(new Date().setHours(0, 0, 0, 0)))
   const [toDate, setToDate] = useState<Date>(new Date(new Date().setHours(23, 59, 59, 999)))
@@ -216,6 +217,13 @@ export function EmployeeTable({ limit = 10, search = "" }: EmployeeTableProps) {
     onSuccess: () => {
       utils.admin.getEmployees.invalidate();
       setEditingName(null);
+    }
+  });
+
+  const deleteEmployeeMutation = api.admin.deleteEmployee.useMutation({
+    onSuccess: () => {
+      utils.admin.getEmployees.invalidate();
+      setEmployeeToDelete(null);
     }
   });
 
@@ -382,6 +390,7 @@ export function EmployeeTable({ limit = 10, search = "" }: EmployeeTableProps) {
               <TableHead>Комментарии/Скам/Ошибки</TableHead>
               <TableHead>Номер телефона\ID IDEX</TableHead>
               <TableHead>Детали</TableHead>
+              <TableHead>Удалить</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -576,6 +585,17 @@ export function EmployeeTable({ limit = 10, search = "" }: EmployeeTableProps) {
                       }}
                     >
                       <PencilIcon className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </TableCell>
+                <TableCell>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => setEmployeeToDelete(employee.id)}
+                    >
+                      Удалить
                     </Button>
                   </div>
                 </TableCell>
@@ -867,6 +887,36 @@ export function EmployeeTable({ limit = 10, search = "" }: EmployeeTableProps) {
               ))}
             </div>
           </ScrollArea>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={employeeToDelete !== null} onOpenChange={() => setEmployeeToDelete(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Подтверждение удаления</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <p>Вы уверены, что хотите удалить этого пользователя и все связанные с ним данные? Это действие нельзя отменить.</p>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setEmployeeToDelete(null)}
+            >
+              Отмена
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                if (employeeToDelete) {
+                  deleteEmployeeMutation.mutate({ id: employeeToDelete });
+                }
+              }}
+            >
+              Удалить
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
 

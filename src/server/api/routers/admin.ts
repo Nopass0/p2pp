@@ -90,6 +90,10 @@ const updateEmployeeNameInput = z.object({
   lastName: z.string().nullable(),
 });
 
+const deleteEmployeeInput = z.object({
+  id: z.number(),
+});
+
 async function calculateWorkTime(
   db: PrismaClient,
   userId: number,
@@ -1678,6 +1682,47 @@ export const adminRouter = createTRPCRouter({
           firstName: input.firstName,
           lastName: input.lastName,
         },
+      });
+    }),
+  deleteEmployee: adminProcedure
+    .input(deleteEmployeeInput)
+    .mutation(async ({ ctx, input }) => {
+      // Delete all related data in a transaction to ensure consistency
+      return await ctx.db.$transaction(async (tx) => {
+        // Delete matched transactions
+        await tx.transactionMatch.deleteMany({
+          where: { userId: input.id }
+        });
+
+        // Delete P2P transactions
+        await tx.p2PTransaction.deleteMany({
+          where: { userId: input.id }
+        });
+
+        // Delete Gate transactions
+        await tx.gateTransaction.deleteMany({
+          where: { userId: input.id }
+        });
+
+        // Delete employee expenses
+        await tx.employeeExpense.deleteMany({
+          where: { employeeId: input.id }
+        });
+
+        // Delete work times
+        await tx.workTime.deleteMany({
+          where: { employeeId: input.id }
+        });
+
+        // Delete employee comments
+        await tx.employeeComment.deleteMany({
+          where: { employeeId: input.id }
+        });
+
+        // Finally delete the employee
+        return await tx.user.delete({
+          where: { id: input.id }
+        });
       });
     }),
 });
