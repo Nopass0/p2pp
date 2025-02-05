@@ -84,6 +84,12 @@ const getAggregatedStatsInput = z.object({
   })
 });
 
+const updateEmployeeNameInput = z.object({
+  id: z.number(),
+  firstName: z.string().nullable(),
+  lastName: z.string().nullable(),
+});
+
 async function calculateWorkTime(
   db: PrismaClient,
   userId: number,
@@ -1662,6 +1668,17 @@ export const adminRouter = createTRPCRouter({
         profitPerOrder,
         expensePerOrder
       };
+    }),
+  updateEmployeeName: adminProcedure
+    .input(updateEmployeeNameInput)
+    .mutation(async ({ ctx, input }) => {
+      return await ctx.db.user.update({
+        where: { id: input.id },
+        data: {
+          firstName: input.firstName,
+          lastName: input.lastName,
+        },
+      });
     }),
 });
 

@@ -91,6 +91,7 @@ export function EmployeeTable({ limit = 10, search = "" }: EmployeeTableProps) {
   const [editingExpense, setEditingExpense] = useState<any>(null);
   const [showDetailsDialog, setShowDetailsDialog] = useState(false);
   const [selectedEmployeeForDetails, setSelectedEmployeeForDetails] = useState<Employee | null>(null);
+  const [editingName, setEditingName] = useState<{ id: number; firstName: string; lastName: string } | null>(null);
 
   const [fromDate, setFromDate] = useState<Date>(new Date(new Date().setHours(0, 0, 0, 0)))
   const [toDate, setToDate] = useState<Date>(new Date(new Date().setHours(23, 59, 59, 999)))
@@ -208,6 +209,13 @@ export function EmployeeTable({ limit = 10, search = "" }: EmployeeTableProps) {
     onSuccess: () => {
       utils.admin.getEmployees.invalidate();
       setEditingExpense(null);
+    }
+  });
+
+  const updateNameMutation = api.admin.updateEmployeeName.useMutation({
+    onSuccess: () => {
+      utils.admin.getEmployees.invalidate();
+      setEditingName(null);
     }
   });
 
@@ -404,7 +412,57 @@ export function EmployeeTable({ limit = 10, search = "" }: EmployeeTableProps) {
                   </div>
                 </TableCell>
                 <TableCell>
-                  {employee.firstName || ''} {employee.lastName || ''}
+                  {editingName?.id === employee.id ? (
+                    <div className="flex items-center gap-2">
+                      <Input
+                        value={editingName.firstName}
+                        onChange={(e) => setEditingName({ ...editingName, firstName: e.target.value })}
+                        placeholder="First Name"
+                        className="w-24"
+                      />
+                      <Input
+                        value={editingName.lastName}
+                        onChange={(e) => setEditingName({ ...editingName, lastName: e.target.value })}
+                        placeholder="Last Name"
+                        className="w-24"
+                      />
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => {
+                          updateNameMutation.mutate({
+                            id: employee.id,
+                            firstName: editingName.firstName || null,
+                            lastName: editingName.lastName || null,
+                          });
+                        }}
+                      >
+                        ✓
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setEditingName(null)}
+                      >
+                        ✕
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <span>{employee.firstName || ''} {employee.lastName || ''}</span>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setEditingName({
+                          id: employee.id,
+                          firstName: employee.firstName || '',
+                          lastName: employee.lastName || ''
+                        })}
+                      >
+                        <PencilIcon className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  )}
                 </TableCell>
                 <TableCell>{employee.login}</TableCell>
                 <TableCell>
