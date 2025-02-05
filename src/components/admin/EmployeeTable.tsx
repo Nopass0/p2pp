@@ -95,6 +95,16 @@ export function EmployeeTable({ limit = 10, search = "" }: EmployeeTableProps) {
   const [fromDate, setFromDate] = useState<Date>(new Date(new Date().setHours(0, 0, 0, 0)))
   const [toDate, setToDate] = useState<Date>(new Date(new Date().setHours(23, 59, 59, 999)))
 
+  // Fetch aggregated stats
+  const { data: aggregatedStats } = api.admin.getAggregatedStats.useQuery({
+    dateRange: {
+      from: fromDate.toISOString(),
+      to: toDate.toISOString()
+    }
+  }, {
+    refetchOnWindowFocus: false
+  });
+
   // Create a default date range if none provided
   const effectiveDateRange = useMemo(() => {
     const defaultFrom = new Date(0);
@@ -271,7 +281,41 @@ export function EmployeeTable({ limit = 10, search = "" }: EmployeeTableProps) {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center space-x-4 mb-4">
+      <div className="flex justify-between items-center">
+        <div className="flex gap-4">
+          <DateTimePicker
+            date={fromDate}
+            setDate={setFromDate}
+            label="С"
+          />
+          <DateTimePicker
+            date={toDate}
+            setDate={setToDate}
+            label="По"
+          />
+        </div>
+      </div>
+
+      {/* Aggregated Statistics */}
+      {aggregatedStats && (
+        <div className="bg-secondary/20 p-4 rounded-lg">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <div>Валовый расход: {aggregatedStats.grossExpense.toFixed(2)} USDT</div>
+              <div>Валовый доход: {aggregatedStats.grossIncome.toFixed(2)} USDT</div>
+              <div>Валовая прибыль: {aggregatedStats.grossProfit.toFixed(2)} USDT</div>
+              <div>Процент от выручки: {aggregatedStats.profitPercentage.toFixed(2)}%</div>
+            </div>
+            <div className="space-y-2">
+              <div>Количество метченных ордеров: {aggregatedStats.matchedCount}</div>
+              <div>Средняя прибыль на ордер: {aggregatedStats.profitPerOrder.toFixed(2)} USDT</div>
+              <div>Средний расход на ордер: {aggregatedStats.expensePerOrder.toFixed(2)} USDT</div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="flex justify-between items-center">
         <Input
           placeholder="Search by login or name..."
           value={searchState}
@@ -279,16 +323,6 @@ export function EmployeeTable({ limit = 10, search = "" }: EmployeeTableProps) {
           className="max-w-sm"
         />
         <div className="flex items-center space-x-2">
-          <DateTimePicker
-            date={fromDate}
-            setDate={setFromDate}
-            label="From"
-          />
-          <DateTimePicker
-            date={toDate}
-            setDate={setToDate}
-            label="To"
-          />
         </div>
         <Select
           value={selectedCurrency}

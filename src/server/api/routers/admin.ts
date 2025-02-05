@@ -77,6 +77,13 @@ const addExpenseInput = z.object({
   currency: z.enum(["USDT"]).default("USDT")
 });
 
+const getAggregatedStatsInput = z.object({
+  dateRange: z.object({
+    from: z.string(),
+    to: z.string()
+  })
+});
+
 async function calculateWorkTime(
   db: PrismaClient,
   userId: number,
@@ -1600,6 +1607,61 @@ export const adminRouter = createTRPCRouter({
       }, 0);
 
       return gateRevenue + p2pRevenue;
+    }),
+  getAggregatedStats: adminProcedure
+    .input(getAggregatedStatsInput)
+    .query(async ({ ctx, input }) => {
+      const { from, to } = getDateRangeFromInput(input.dateRange);
+
+      const allTransactions = await ctx.db.transactionMatch.findMany({
+        where: {
+          OR: [
+            {
+              P2PTransaction: {
+                completedAt: {
+                  gte: from,
+                  lte: to
+                }
+              }
+            },
+            {
+              GateTransaction: {
+                approvedAt: {
+                  gte: from,
+                  lte: to
+                }
+              }
+            }
+          ]
+        },
+        include: {
+          P2PTransaction: true,
+          GateTransaction: true
+        }
+      });
+
+      const commission = 1.009;
+      const grossExpense = allTransactions.reduce((sum, tx) => 
+        sum + (tx.P2PTransaction?.amount ?? 0), 0) * commission;
+      
+      const grossIncome = allTransactions.reduce((sum, tx) => 
+        sum + (tx.GateTransaction?.totalUsdt ?? 0), 0);
+
+      const grossProfit = grossIncome - grossExpense;
+      const profitPercentage = grossExpense ? (grossProfit / grossExpense) * 100 : 0;
+      const matchedCount = allTransactions.length;
+      const profitPerOrder = matchedCount ? grossProfit / matchedCount : 0;
+      const expensePerOrder = matchedCount ? grossExpense / matchedCount : 0;
+
+      return {
+        grossExpense,
+        grossIncome,
+        grossProfit,
+        profitPercentage,
+        matchedCount,
+        profitPerOrder,
+        expensePerOrder
+      };
     }),
 });
 

@@ -17,7 +17,7 @@ export default function AdminDashboard() {
   return (
     <ScrollArea className="h-[calc(100vh-4rem)]">
       <div className="space-y-6 p-6">
-        <div className="flex items-center justify-between">
+        {/* <div className="flex items-center justify-between">
           <h1 className="text-3xl font-bold">Панель администратора</h1>
           <div className="flex items-center space-x-4">
             <DateRangePicker
@@ -43,9 +43,9 @@ export default function AdminDashboard() {
               Сбросить
             </Button>
           </div>
-        </div>
+        </div> */}
 
-        <Card>
+        {/* <Card>
           <CardHeader>
             <CardTitle>Общие показатели</CardTitle>
           </CardHeader>
@@ -54,7 +54,7 @@ export default function AdminDashboard() {
               <OverallMetrics dateRange={dateRange} />
             </Suspense>
           </CardContent>
-        </Card>
+        </Card> */}
 
         <Card>
           <CardHeader>
