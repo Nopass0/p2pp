@@ -235,28 +235,48 @@ export function EmployeeTable({ limit = 10, search = "" }: EmployeeTableProps) {
   };
 
   const calculateGrossProfit = (employee: any) => {
-    let profit = 0;
+    const matchedTransactions = (employee.matchTransactions || []).filter((tx: any) => {
+      const p2pDate = tx.P2PTransaction?.completedAt ? new Date(tx.P2PTransaction.completedAt) : null;
+      const gateDate = tx.GateTransaction?.approvedAt ? new Date(tx.GateTransaction.approvedAt) : null;
+      
+      return (p2pDate && p2pDate >= fromDate && p2pDate <= toDate) ||
+             (gateDate && gateDate >= fromDate && gateDate <= toDate);
+    });
+
+    const commission = 1.009;
+    const grossExpense = matchedTransactions.reduce((sum: number, tx: any) => 
+      sum + (tx.P2PTransaction?.amount ?? 0), 0) * commission;
     
-    // P2P transactions
-    if (Array.isArray(employee.P2PTransaction)) {
-      employee.P2PTransaction.forEach((tx: any) => {
-        profit += Number(tx.amount) || 0;
-      });
-    }
+    const grossIncome = matchedTransactions.reduce((sum: number, tx: any) => 
+      sum + (tx.GateTransaction?.totalUsdt ?? 0), 0);
 
-    // Gate transactions
-    if (Array.isArray(employee.gateTransactions)) {
-      employee.gateTransactions.forEach((tx: any) => {
-        profit += Number(tx.totalUsdt) || 0;
-      });
-    }
-
-    return profit;
+    return grossIncome - grossExpense;
   };
 
   const calculateSalary = (employee: any) => {
     const grossProfit = calculateGrossProfit(employee);
     return grossProfit * (Number(employee.salaryPercentage) || 0);
+  };
+
+  const getLatestMatchDetails = (employee: any) => {
+    if (!employee.matchTransactions || employee.matchTransactions.length === 0) {
+      return { phone: '-', idexId: '-' };
+    }
+
+    // Sort transactions by date and get the latest one
+    const sortedTransactions = [...employee.matchTransactions].sort((a, b) => {
+      const dateA = a.P2PTransaction?.completedAt ? new Date(a.P2PTransaction.completedAt) : 
+                   a.GateTransaction?.approvedAt ? new Date(a.GateTransaction.approvedAt) : new Date(0);
+      const dateB = b.P2PTransaction?.completedAt ? new Date(b.P2PTransaction.completedAt) : 
+                   b.GateTransaction?.approvedAt ? new Date(b.GateTransaction.approvedAt) : new Date(0);
+      return dateB.getTime() - dateA.getTime();
+    });
+
+    const latestMatch = sortedTransactions[0];
+    const phone = latestMatch.P2PTransaction?.currentTgPhone || '-';
+    const idexId = latestMatch.GateTransaction?.idexId || '-';
+
+    return { phone, idexId };
   };
 
   useEffect(() => {
@@ -324,7 +344,7 @@ export function EmployeeTable({ limit = 10, search = "" }: EmployeeTableProps) {
         />
         <div className="flex items-center space-x-2">
         </div>
-        <Select
+        {/* <Select
           value={selectedCurrency}
           onValueChange={(value: 'USDT' | 'RUB') => setSelectedCurrency(value)}
         >
@@ -335,7 +355,7 @@ export function EmployeeTable({ limit = 10, search = "" }: EmployeeTableProps) {
             <SelectItem value="USDT">USDT</SelectItem>
             <SelectItem value="RUB">RUB</SelectItem>
           </SelectContent>
-        </Select>
+        </Select> */}
       </div>
 
       <div className="overflow-x-auto">
@@ -352,7 +372,7 @@ export function EmployeeTable({ limit = 10, search = "" }: EmployeeTableProps) {
               <TableHead>ЗП</TableHead>
               <TableHead>Депозит</TableHead>
               <TableHead>Комментарии/Скам/Ошибки</TableHead>
-              <TableHead>Действия</TableHead>
+              <TableHead>Номер телефона\ID IDEX</TableHead>
               <TableHead>Детали</TableHead>
             </TableRow>
           </TableHeader>
@@ -428,8 +448,8 @@ export function EmployeeTable({ limit = 10, search = "" }: EmployeeTableProps) {
                     {formatWorkTime(employee)}
                   </div>
                 </TableCell>
-                <TableCell>{formatCurrency(employee.grossProfit || 0, selectedCurrency)}</TableCell>
-                <TableCell>{formatCurrency(employee.salary || 0, selectedCurrency)}</TableCell>
+                <TableCell>{formatCurrency(calculateGrossProfit(employee), selectedCurrency)}</TableCell>
+                <TableCell>{formatCurrency(calculateSalary(employee), selectedCurrency)}</TableCell>
                 <TableCell>
                   <div className="flex items-center gap-2">
                     {editingDeposit?.id === employee.id ? (
@@ -474,13 +494,18 @@ export function EmployeeTable({ limit = 10, search = "" }: EmployeeTableProps) {
                   </div>
                 </TableCell>
                 <TableCell>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => router.push(`/dashboard/admin/employees/${employee.id}`)}
-                  >
-                    Details
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    {(() => {
+                      const { phone, idexId } = getLatestMatchDetails(employee);
+                      return (
+                        <>
+                          <span>{phone}</span>
+                          {phone !== '-' && idexId !== '-' && <span>/</span>}
+                          <span>{idexId}</span>
+                        </>
+                      );
+                    })()}
+                  </div>
                 </TableCell>
                 <TableCell>
                   <div className="flex gap-2">
