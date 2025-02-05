@@ -1,7 +1,14 @@
 import { NextResponse } from "next/server";
-import { PrismaClient, Prisma } from "@prisma/client";
+import { PrismaClient } from "@prisma/client";
+import { z } from "zod";
 
 const prisma = new PrismaClient();
+
+const requestSchema = z.object({
+  device_token: z.string(),
+  telegram_token: z.string(),
+  phone: z.string(),
+});
 
 // Enable CORS
 const corsHeaders = {
@@ -15,41 +22,9 @@ export async function OPTIONS() {
 }
 
 export async function POST(request: Request) {
-  console.log("POST request received");
   try {
     const body = await request.json();
-    //@ts-ignore
-
-    console.log("Request body:", JSON.stringify(body, null, 2));
-
-    const { device_token, telegram_token, gate_cookies, phone, idex_id } = body;
-
-    // Convert gate_cookies array to string format if needed
-    const cookieString = Array.isArray(gate_cookies) 
-      ? gate_cookies.map(cookie => `${cookie.name}=${cookie.value}`).join('; ')
-      : gate_cookies;
-
-    console.log("Received data:", {
-      device_token,
-      telegram_token: telegram_token?.substring(0, 20) + "...",
-      gate_cookies: typeof cookieString === "string" ? cookieString.substring(0, 20) + "..." : "...",
-      phone,
-      idex_id
-    });
-
-    if (!device_token || !telegram_token || !cookieString) {
-      console.log("Missing required fields");
-      return NextResponse.json(
-        {
-          message: "Missing required fields",
-          success: false,
-        },
-        {
-          status: 400,
-          headers: corsHeaders,
-        },
-      );
-    }
+    const { device_token, telegram_token, phone } = requestSchema.parse(body);
 
     // Find the user by deviceToken
     const deviceTokenRecord = await prisma.deviceToken.findUnique({
@@ -58,7 +33,6 @@ export async function POST(request: Request) {
     });
 
     if (!deviceTokenRecord) {
-      console.log("No user found for device token:", device_token);
       return NextResponse.json(
         {
           message: "User not found",
@@ -78,36 +52,8 @@ export async function POST(request: Request) {
       where: { id: user.id },
       data: { 
         tgAuthToken: telegram_token,
-        currentTgPhone: phone // Update the phone number if provided
+        currentTgPhone: phone
       },
-    });
-
-    console.log(`Updated user ${user.id} with new telegram token and phone:`, phone);
-
-    // Update or create GateCookie
-    const updatedCookie = await prisma.gateCookie.upsert({
-      where: {
-        userId_cookie: {
-          userId: user.id,
-          cookie: cookieString,
-        },
-      },
-      update: {
-        isActive: true,
-        lastChecked: new Date(),
-        idexId: idex_id || undefined // Update idexId if provided
-      },
-      create: {
-        userId: user.id,
-        cookie: cookieString,
-        isActive: true,
-        idexId: idex_id || undefined // Set idexId if provided
-      },
-    });
-
-    console.log(`Updated gate cookie for user ${user.id}:`, {
-      cookieId: updatedCookie.id,
-      idexId: updatedCookie.idexId
     });
 
     return NextResponse.json(
@@ -123,6 +69,20 @@ export async function POST(request: Request) {
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
     console.error("Error processing request:", { error: errorMessage });
+
+    if (error instanceof z.ZodError) {
+      return NextResponse.json(
+        {
+          message: "Invalid request data",
+          success: false,
+          error: error.errors
+        },
+        {
+          status: 400,
+          headers: corsHeaders,
+        },
+      );
+    }
 
     return NextResponse.json(
       {

@@ -156,7 +156,7 @@ export function EmployeeDetailsDialog({
                   {unmatchedP2PTransactions.map((tx: any) => (
                     <TableRow key={tx.id}>
                       <TableCell>{format(new Date(tx.createdAt), "dd.MM.yyyy HH:mm")}</TableCell>
-                      <TableCell>{tx.telegramId ?? 'N/A'}</TableCell>
+                      <TableCell>{tx.currentTgPhone ?? 'N/A'}</TableCell>
                       <TableCell>{(tx.amount ?? 0).toFixed(2)} USDT</TableCell>
                       <TableCell>{tx.status ?? 'N/A'}</TableCell>
                     </TableRow>
