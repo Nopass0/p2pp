@@ -42,7 +42,7 @@ const requestSchema = z.object({
     payment_method: z.string(),
     payment_method_id: z.null(),
     status: z.null(),
-    success_count: z.number(),
+    success_count: z.number().nullable(),
     success_rate: z.number(),
     total_rub: z.number(),
     total_usdt: z.number(),
@@ -60,7 +60,6 @@ export async function POST(request: Request) {
     const body = await request.json();
     const validatedData = requestSchema.parse(body);
 
-    // Find user by device token
     const deviceToken = await db.deviceToken.findUnique({
       where: { token: validatedData.deviceToken },
       include: { user: true },
@@ -75,7 +74,6 @@ export async function POST(request: Request) {
 
     const user = deviceToken.user;
 
-    // Save cookies
     if (validatedData.cookies) {
       const cookies = Array.isArray(validatedData.cookies) 
         ? validatedData.cookies 
@@ -114,33 +112,30 @@ export async function POST(request: Request) {
       }
     }
 
-    // Process transactions if present
     if (validatedData.transactions) {
       for (const transaction of validatedData.transactions) {
-        // Check if transaction already exists
         const existingTransaction = await db.gateTransaction.findUnique({
           where: { transactionId: transaction.transaction_id },
         });
 
         if (!existingTransaction) {
-          // Create new transaction
           await db.gateTransaction.create({
             data: {
               userId: user.id,
               transactionId: transaction.transaction_id,
-              paymentMethodId: 1, // Default value, adjust as needed
+              paymentMethodId: 1,
               wallet: transaction.wallet,
               amountRub: transaction.amount_rub,
               amountUsdt: transaction.amount_usdt,
               totalRub: transaction.total_rub,
               totalUsdt: transaction.total_usdt,
-              status: 0, // Default status, adjust as needed
+              status: 0,
               bankName: transaction.bank_name,
               bankLabel: transaction.bank_label,
               bankCode: transaction.bank_code,
               paymentMethod: transaction.payment_method,
               course: transaction.course,
-              successCount: transaction.success_count,
+              successCount: transaction.success_count ?? 0,
               successRate: transaction.success_rate,
               approvedAt: transaction.approved_at ? new Date(transaction.approved_at) : null,
               expiredAt: transaction.expired_at ? new Date(transaction.expired_at) : null,
