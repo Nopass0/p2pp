@@ -93,6 +93,7 @@ export function EmployeeTable({ limit = 10, search = "" }: EmployeeTableProps) {
   const [selectedEmployeeForDetails, setSelectedEmployeeForDetails] = useState<Employee | null>(null);
   const [editingName, setEditingName] = useState<{ id: number; firstName: string; lastName: string } | null>(null);
   const [employeeToDelete, setEmployeeToDelete] = useState<number | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const [fromDate, setFromDate] = useState<Date>(new Date(new Date().setHours(0, 0, 0, 0)))
   const [toDate, setToDate] = useState<Date>(new Date(new Date().setHours(23, 59, 59, 999)))
@@ -201,15 +202,16 @@ export function EmployeeTable({ limit = 10, search = "" }: EmployeeTableProps) {
 
   const editCommentMutation = api.admin.editComment.useMutation({
     onSuccess: () => {
+      utils.admin.getEmployeeComments.invalidate({ userId: selectedEmployee ?? 0 });
       utils.admin.getEmployees.invalidate();
       setEditingComment(null);
     }
   });
 
-  const editExpenseMutation = api.admin.editExpense.useMutation({
+  const deleteCommentMutation = api.admin.deleteComment.useMutation({
     onSuccess: () => {
+      utils.admin.getEmployeeComments.invalidate({ userId: selectedEmployee ?? 0 });
       utils.admin.getEmployees.invalidate();
-      setEditingExpense(null);
     }
   });
 
@@ -224,6 +226,12 @@ export function EmployeeTable({ limit = 10, search = "" }: EmployeeTableProps) {
     onSuccess: () => {
       utils.admin.getEmployees.invalidate();
       setEmployeeToDelete(null);
+      setShowDetailsDialog(false);
+      setDeleteError(null);
+    },
+    onError: (error) => {
+      console.error("Error deleting employee:", error);
+      setDeleteError(error.message || "Не удалось удалить сотрудника. Пожалуйста, попробуйте снова.");
     }
   });
 
@@ -541,11 +549,15 @@ export function EmployeeTable({ limit = 10, search = "" }: EmployeeTableProps) {
                   <div className="flex flex-col gap-1">
                     <div className="flex items-center gap-2">
                       <span>Comments: {employee.commentsCount || 0}</span>
-                      <Button variant="ghost" size="sm" onClick={() => {
-                        setSelectedEmployee(employee.id);
-                        setShowCommentsDialog(true);
-                        refetchComments();
-                      }}>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setSelectedEmployee(employee.id);
+                          setShowCommentsDialog(true);
+                          refetchComments();
+                        }}
+                      >
                         <PencilIcon className="h-4 w-4" />
                       </Button>
                     </div>
@@ -701,10 +713,62 @@ export function EmployeeTable({ limit = 10, search = "" }: EmployeeTableProps) {
             <div className="space-y-4">
               {comments?.map((comment) => (
                 <div key={comment.id} className="border-b pb-2">
-                  <p className="whitespace-pre-wrap">{comment.content}</p>
-                  <div className="flex justify-between items-center mt-1 text-sm text-muted-foreground">
-                    <span>{format(new Date(comment.createdAt), "dd.MM.yyyy HH:mm")}</span>
-                  </div>
+                  {editingComment?.id === comment.id ? (
+                    <div className="space-y-2">
+                      <Textarea
+                        value={editingComment.content}
+                        onChange={(e) => setEditingComment({ ...editingComment, content: e.target.value })}
+                      />
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          onClick={async () => {
+                            await editCommentMutation.mutateAsync({
+                              id: comment.id,
+                              content: editingComment.content
+                            });
+                          }}
+                        >
+                          Сохранить
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setEditingComment(null)}
+                        >
+                          Отмена
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <p className="whitespace-pre-wrap">{comment.content}</p>
+                      <div className="flex justify-between items-center mt-1 text-sm text-muted-foreground">
+                        <span>{format(new Date(comment.createdAt), "dd.MM.yyyy HH:mm")}</span>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setEditingComment({
+                              id: comment.id,
+                              content: comment.content
+                            })}
+                          >
+                            <PencilIcon className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={async () => {
+                              await deleteCommentMutation.mutateAsync({ id: comment.id });
+                            }}
+                          >
+                            <Trash className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    </>
+                  )}
                 </div>
               ))}
             </div>
@@ -891,30 +955,46 @@ export function EmployeeTable({ limit = 10, search = "" }: EmployeeTableProps) {
       </Dialog>
 
       {/* Delete Confirmation Dialog */}
-      <Dialog open={employeeToDelete !== null} onOpenChange={() => setEmployeeToDelete(null)}>
+      <Dialog open={employeeToDelete !== null} onOpenChange={(open) => {
+        if (!open) {
+          setEmployeeToDelete(null);
+          setDeleteError(null);
+        }
+      }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Подтверждение удаления</DialogTitle>
           </DialogHeader>
           <div className="py-4">
             <p>Вы уверены, что хотите удалить этого пользователя и все связанные с ним данные? Это действие нельзя отменить.</p>
+            {deleteError && (
+              <p className="text-red-500 mt-2">{deleteError}</p>
+            )}
           </div>
           <div className="flex justify-end gap-2">
             <Button
               variant="outline"
-              onClick={() => setEmployeeToDelete(null)}
+              onClick={() => {
+                setEmployeeToDelete(null);
+                setDeleteError(null);
+              }}
             >
               Отмена
             </Button>
             <Button
               variant="destructive"
-              onClick={() => {
+              onClick={async () => {
                 if (employeeToDelete) {
-                  deleteEmployeeMutation.mutate({ id: employeeToDelete });
+                  try {
+                    await deleteEmployeeMutation.mutateAsync({ id: employeeToDelete });
+                  } catch (error) {
+                    console.error("Failed to delete employee:", error);
+                  }
                 }
               }}
+              disabled={deleteEmployeeMutation.isLoading}
             >
-              Удалить
+              {deleteEmployeeMutation.isLoading ? "Удаление..." : "Удалить"}
             </Button>
           </div>
         </DialogContent>

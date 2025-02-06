@@ -1543,20 +1543,17 @@ export const adminRouter = createTRPCRouter({
   deleteComment: adminProcedure
     .input(z.object({ id: z.number() }))
     .mutation(async ({ ctx, input }) => {
-      return await ctx.db.comment.delete({
-        where: { id: input.id }
+      return await ctx.db.employeeComment.delete({
+        where: { id: input.id },
       });
     }),
 
   editComment: adminProcedure
-    .input(z.object({
-      id: z.number(),
-      content: z.string()
-    }))
+    .input(z.object({ id: z.number(), content: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      return await ctx.db.comment.update({
+      return await ctx.db.employeeComment.update({
         where: { id: input.id },
-        data: { content: input.content }
+        data: { content: input.content },
       });
     }),
 
@@ -1687,43 +1684,41 @@ export const adminRouter = createTRPCRouter({
   deleteEmployee: adminProcedure
     .input(deleteEmployeeInput)
     .mutation(async ({ ctx, input }) => {
-      // Delete all related data in a transaction to ensure consistency
-      return await ctx.db.$transaction(async (tx) => {
-        // Delete matched transactions
-        await tx.transactionMatch.deleteMany({
-          where: { userId: input.id }
-        });
-
-        // Delete P2P transactions
-        await tx.p2PTransaction.deleteMany({
-          where: { userId: input.id }
-        });
-
-        // Delete Gate transactions
-        await tx.gateTransaction.deleteMany({
-          where: { userId: input.id }
-        });
-
-        // Delete employee expenses
-        await tx.employeeExpense.deleteMany({
-          where: { employeeId: input.id }
-        });
-
-        // Delete work times
-        await tx.workTime.deleteMany({
-          where: { employeeId: input.id }
-        });
-
-        // Delete employee comments
-        await tx.employeeComment.deleteMany({
-          where: { employeeId: input.id }
-        });
-
-        // Finally delete the employee
-        return await tx.user.delete({
+      try {
+        const employee = await ctx.db.user.findUnique({
           where: { id: input.id }
         });
-      });
+
+        if (!employee) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Employee not found"
+          });
+        }
+
+        // Delete all related data in a transaction
+        const deleteOperations = [
+          ctx.db.transactionMatch.deleteMany({ where: { userId: input.id } }),
+          ctx.db.p2PTransaction.deleteMany({ where: { userId: input.id } }),
+          ctx.db.gateTransaction.deleteMany({ where: { userId: input.id } }),
+          ctx.db.employeeExpense.deleteMany({ where: { employeeId: input.id } }),
+          ctx.db.workTime.deleteMany({ where: { employeeId: input.id } }),
+          ctx.db.employeeComment.deleteMany({ where: { employeeId: input.id } }),
+          ctx.db.user.delete({ where: { id: input.id } })
+        ];
+
+        await ctx.db.$transaction(deleteOperations);
+
+        return { id: input.id };
+
+      } catch (error) {
+        console.error("Error deleting employee:", error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to delete employee",
+          cause: error
+        });
+      }
     }),
 });
 
