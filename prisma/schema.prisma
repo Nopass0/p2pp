@@ -27,8 +27,12 @@ model User {
   updatedAt           DateTime              @updatedAt
   tgAuthToken         String?
   geminiToken         String?
+  currentTgPhone      String?
   adminActions        AdminAction[]
+  appeals             Appeal[]
   DeviceToken         DeviceToken[]
+  comments            EmployeeComment[]
+  employeeExpenses    EmployeeExpense[]
   gateCookies         GateCookie[]
   gateTransactions    GateTransaction[]
   P2PTransaction      P2PTransaction[]
@@ -40,11 +44,7 @@ model User {
   TronWallet          TronWallet?
   activityLogs        UserActivityLog[]
   UserSession         UserSession[]
-  employeeExpenses    EmployeeExpense[]
-  appeals             Appeal[]
   WorkTime            WorkTime[]
-  currentTgPhone String?
-  comments            EmployeeComment[]
 
   @@index([login])
   @@index([telegramId])
@@ -155,14 +155,14 @@ model GateCookie {
 model GateTransaction {
   id               Int                @id @default(autoincrement())
   userId           Int
-  transactionId    String             @unique
+  transactionId    String
   paymentMethodId  Int
   wallet           String
   amountRub        Float
   amountUsdt       Float
   totalRub         Float
   totalUsdt        Float
-  idexId      String?
+  idexId           String?
   status           Int
   bankName         String?
   bankLabel        String?
@@ -178,11 +178,11 @@ model GateTransaction {
   bankCode         String?
   traderId         Int?
   traderName       String?
+  commissionRate   Float?
+  initialBalance   Float?
   user             User               @relation(fields: [userId], references: [id], onDelete: Cascade)
   Receipt          Receipt[]
   TransactionMatch TransactionMatch[]
-  commissionRate   Float? // Новое поле: зарплатный коэффициент
-  initialBalance   Float? // Новое поле: начальный баланс
 
   @@index([userId, createdAt])
   @@index([transactionId])
@@ -202,7 +202,6 @@ model Expense {
   amount Float
   date   DateTime
   name   String
-  // Add any other fields you need for expenses
 }
 
 model TelegramTransaction {
@@ -295,7 +294,7 @@ model P2PTransaction {
   userId           Int
   telegramId       String
   status           String
-  currentTgPhone String?
+  currentTgPhone   String?
   amount           Float
   totalRub         Float
   price            Float
@@ -349,35 +348,35 @@ model Receipt {
 }
 
 model WorkTime {
-  id        Int          @id @default(autoincrement())
+  id        Int         @id @default(autoincrement())
   userId    Int
-  user      User        @relation(fields: [userId], references: [id])
   duration  Float
   startTime DateTime
   endTime   DateTime?
   createdAt DateTime    @default(now())
   updatedAt DateTime    @updatedAt
   report    WorkReport?
+  user      User        @relation(fields: [userId], references: [id])
 
   @@index([userId])
 }
 
 model WorkReport {
-  id          Int              @id @default(autoincrement())
-  workTimeId  Int             @unique
-  workTime    WorkTime        @relation(fields: [workTimeId], references: [id])
-  content     String
-  createdAt   DateTime        @default(now())
-  files       WorkReportFile[]
+  id         Int              @id @default(autoincrement())
+  workTimeId Int              @unique
+  content    String
+  createdAt  DateTime         @default(now())
+  workTime   WorkTime         @relation(fields: [workTimeId], references: [id])
+  files      WorkReportFile[]
 }
 
 model WorkReportFile {
-  id          Int         @id @default(autoincrement())
-  reportId    Int
-  report      WorkReport  @relation(fields: [reportId], references: [id])
-  filename    String
-  path        String
-  createdAt   DateTime    @default(now())
+  id        Int        @id @default(autoincrement())
+  reportId  Int
+  filename  String
+  path      String
+  createdAt DateTime   @default(now())
+  report    WorkReport @relation(fields: [reportId], references: [id])
 
   @@index([reportId])
 }
@@ -386,8 +385,8 @@ model EmployeeExpense {
   id          Int      @id @default(autoincrement())
   userId      Int
   amount      Float
-  currency    String // USDT or RUB
-  type        String // SCAM or ERROR
+  currency    String
+  type        String
   date        DateTime
   description String?
   createdAt   DateTime @default(now())
@@ -401,7 +400,7 @@ model Appeal {
   id              Int      @id @default(autoincrement())
   userId          Int
   gateId          String
-  status          String // PENDING, APPROVED, REJECTED
+  status          String
   employeeComment String?
   adminComment    String?
   isFinalized     Boolean  @default(false)
@@ -416,8 +415,8 @@ model Appeal {
 model EmployeeComment {
   id        Int      @id @default(autoincrement())
   userId    Int
-  user      User     @relation(fields: [userId], references: [id])
   content   String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id])
 }
