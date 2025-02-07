@@ -254,7 +254,7 @@ export const adminRouter = createTRPCRouter({
       const search = input.search ?? "";
 
       const where = {
-        isAdmin: true,
+
         OR: [
           { login: { contains: search, mode: 'insensitive' } },
           { firstName: { contains: search, mode: 'insensitive' } },
