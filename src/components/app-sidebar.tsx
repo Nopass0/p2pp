@@ -16,6 +16,7 @@ import {
   PieChart,
   Settings,
   UserCog,
+  Box,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -76,7 +77,7 @@ const regularMenuItems = [
 
 const adminMenuItems = [
   {
-    title: "Dashboard",
+    title: "Сотрудники",
     icon: LayoutDashboard,
     path: "/dashboard/admin",
   },
@@ -84,6 +85,11 @@ const adminMenuItems = [
     title: "Пользователи",
     icon: Users,
     path: "/dashboard/admin/users",
+  },
+  {
+    title: "Разрешенные домены",
+    icon: Box,
+    path: "/dashboard/admin/links",
   },
   // {
   //   title: "Сотрудники",
@@ -115,6 +121,11 @@ const adminMenuItems = [
   //   icon: Activity,
   //   path: "/dashboard/admin/action-logs",
   // },
+  {
+    title: "Версии приложения",
+    icon: Box,
+    path: "/dashboard/admin/application",
+  },
 ];
 
 export function AppSidebar() {

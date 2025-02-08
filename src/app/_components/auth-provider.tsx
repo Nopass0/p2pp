@@ -35,10 +35,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const { data: session, refetch: refetchSession } =
     api.auth.getSession.useQuery(undefined, {
-      //@ts-ignore
-
-      enabled: false,
       retry: false,
+      refetchOnWindowFocus: false,
     });
 
   const loginMutation = api.auth.login.useMutation();
@@ -47,11 +45,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const fetchSession = async () => {
       const token = localStorage.getItem("token");
       if (token) {
-        //@ts-ignore
-
-        api.setHeaders({
-          Authorization: `Bearer ${token}`,
-        });
         await refetchSession();
       } else {
         setLoading(false);
@@ -74,7 +67,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!loading) {
       if (user && pathname === "/auth") {
-        router.push("/dashboard");
+        router.push("/");
       } else if (!user && pathname !== "/auth" && pathname !== "/register") {
         router.push("/auth");
       }
@@ -84,13 +77,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = async (login: string, password: string) => {
     try {
       const result = await loginMutation.mutateAsync({ login, password });
-      localStorage.setItem("token", result.token);
-      //@ts-ignore
-
-      api.setHeaders({
-        Authorization: `Bearer ${result.token}`,
-      });
-      await refetchSession();
+      if (result?.token) {
+        localStorage.setItem("token", result.token);
+        await refetchSession();
+        return result;
+      }
+      throw new Error("Login failed: No token received");
     } catch (error) {
       console.error("Login failed:", error);
       throw error;
@@ -98,22 +90,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const logout = async () => {
-    try {
-      //@ts-ignore
-
-      await api.auth.logout.mutate();
-      localStorage.removeItem("token");
-      //@ts-ignore
-
-      api.setHeaders({
-        Authorization: "",
-      });
-      setUser(null);
-      router.push("/auth");
-    } catch (error) {
-      console.error("Logout failed:", error);
-      throw error;
-    }
+    localStorage.removeItem("token");
+    setUser(null);
+    router.push("/auth");
   };
 
   return (

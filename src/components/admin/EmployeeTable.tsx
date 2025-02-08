@@ -30,6 +30,7 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { DateTimePicker } from "@/components/ui/date-time-picker"
 import { EmployeeDetailsDialog } from "./EmployeeDetailsDialog"
+import { Card, CardHeader, CardTitle, CardContent } from "../ui/card"
 
 const ITEMS_PER_PAGE = 24;
 
@@ -342,20 +343,48 @@ export function EmployeeTable({ limit = 10, search = "" }: EmployeeTableProps) {
 
       {/* Aggregated Statistics */}
       {aggregatedStats && (
-        <div className="bg-secondary/20 p-4 rounded-lg">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <div>Валовый расход: {aggregatedStats.grossExpense.toFixed(2)} USDT</div>
-              <div>Валовый доход: {aggregatedStats.grossIncome.toFixed(2)} USDT</div>
-              <div>Валовая прибыль: {aggregatedStats.grossProfit.toFixed(2)} USDT</div>
-              <div>Процент от выручки: {aggregatedStats.profitPercentage.toFixed(2)}%</div>
-            </div>
-            <div className="space-y-2">
-              <div>Количество метченных ордеров: {aggregatedStats.matchedCount}</div>
-              <div>Средняя прибыль на ордер: {aggregatedStats.profitPerOrder.toFixed(2)} USDT</div>
-              <div>Средний расход на ордер: {aggregatedStats.expensePerOrder.toFixed(2)} USDT</div>
-            </div>
-          </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Валовый расход</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{aggregatedStats.grossExpense.toFixed(2)} USDT</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Валовый доход</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{aggregatedStats.grossIncome.toFixed(2)} USDT</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Валовая прибыль</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{aggregatedStats.grossProfit.toFixed(2)} USDT</div>
+              <p className="text-xs text-muted-foreground">
+                {aggregatedStats.profitPercentage.toFixed(2)}% от выручки
+              </p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Метченные ордера</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{aggregatedStats.matchedCount}</div>
+              <p className="text-xs text-muted-foreground">
+                Ср. прибыль: {aggregatedStats.profitPerOrder.toFixed(2)} USDT
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Ср. расход: {aggregatedStats.expensePerOrder.toFixed(2)} USDT
+              </p>
+            </CardContent>
+          </Card>
         </div>
       )}
 
@@ -986,6 +1015,7 @@ export function EmployeeTable({ limit = 10, search = "" }: EmployeeTableProps) {
               onClick={async () => {
                 if (employeeToDelete) {
                   try {
+                    console.log("Employee ID to delete:", employeeToDelete);
                     await deleteEmployeeMutation.mutateAsync({ id: employeeToDelete });
                   } catch (error) {
                     console.error("Failed to delete employee:", error);

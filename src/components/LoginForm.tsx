@@ -27,24 +27,23 @@ export function LoginForm() {
     setIsLoading(true);
     setError(null);
 
-    console.log("Submitting login form:", formData); // Add this line for debugging
-
     try {
-      await login(formData.login, formData.password);
-      console.log("Login successful"); // Add this line for debugging
-      toast({
-        title: "Login successful",
-        description: "You have been logged in successfully.",
-      });
+      const result = await login(formData.login, formData.password);
+      if (result) {
+        toast({
+          title: "Успешный вход",
+          description: "Вы успешно вошли в систему.",
+        });
+      }
     } catch (error) {
-      console.error("Login error:", error); // Add this line for debugging
+      console.error("Login error:", error);
       setError(
-        error instanceof Error ? error.message : "An unknown error occurred",
+        error instanceof Error ? error.message : "Произошла неизвестная ошибка",
       );
       toast({
-        title: "Login failed",
+        title: "Ошибка входа",
         description:
-          error instanceof Error ? error.message : "An unknown error occurred",
+          error instanceof Error ? error.message : "Произошла неизвестная ошибка",
         variant: "destructive",
       });
     } finally {
@@ -55,7 +54,7 @@ export function LoginForm() {
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="space-y-2">
-        <Label htmlFor="login">Login</Label>
+        <Label htmlFor="login">Логин</Label>
         <Input
           id="login"
           name="login"
@@ -65,7 +64,7 @@ export function LoginForm() {
         />
       </div>
       <div className="space-y-2">
-        <Label htmlFor="password">Password</Label>
+        <Label htmlFor="password">Пароль</Label>
         <Input
           id="password"
           name="password"
@@ -80,7 +79,7 @@ export function LoginForm() {
         </Alert>
       )}
       <Button type="submit" className="w-full" disabled={isLoading}>
-        {isLoading ? "Logging in..." : "Login"}
+        {isLoading ? "Выполняется вход..." : "Войти"}
       </Button>
     </form>
   );

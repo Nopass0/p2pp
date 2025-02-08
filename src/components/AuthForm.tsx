@@ -25,7 +25,8 @@ export function AuthForm() {
   const loginMutation = api.auth.login.useMutation({
     onSuccess: (data) => {
       localStorage.setItem("token", data.token);
-      router.push("/dashboard");
+      // Let AuthProvider handle navigation
+      api.auth.getSession.invalidate();
     },
     onError: (error) => {
       setError(error.message);
@@ -35,7 +36,7 @@ export function AuthForm() {
   const registerMutation = api.auth.register.useMutation({
     onSuccess: () => {
       setActiveTab("login");
-      setError("Registration successful. Please log in.");
+      setError("Регистрация прошла успешно. Пожалуйста, войдите.");
     },
     onError: (error) => {
       setError(error.message);
@@ -67,13 +68,13 @@ export function AuthForm() {
         onValueChange={(value) => setActiveTab(value as "login" | "register")}
       >
         <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="login">Login</TabsTrigger>
-          <TabsTrigger value="register">Register</TabsTrigger>
+          <TabsTrigger value="login">Вход</TabsTrigger>
+          <TabsTrigger value="register">Регистрация</TabsTrigger>
         </TabsList>
         <TabsContent value="login">
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="login">Login</Label>
+              <Label htmlFor="login">Логин</Label>
               <Input
                 id="login"
                 name="login"
@@ -83,7 +84,7 @@ export function AuthForm() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password">Пароль</Label>
               <Input
                 id="password"
                 name="password"
@@ -98,16 +99,38 @@ export function AuthForm() {
               disabled={loginMutation.isLoading}
             >
               {loginMutation.isLoading ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : null}
-              Login
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Вход...
+                </>
+              ) : (
+                "Войти"
+              )}
             </Button>
           </form>
         </TabsContent>
         <TabsContent value="register">
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="login">Login</Label>
+              <Label htmlFor="firstName">Имя</Label>
+              <Input
+                id="firstName"
+                name="firstName"
+                type="text"
+                onChange={handleInputChange}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="lastName">Фамилия</Label>
+              <Input
+                id="lastName"
+                name="lastName"
+                type="text"
+                onChange={handleInputChange}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="login">Логин</Label>
               <Input
                 id="login"
                 name="login"
@@ -117,30 +140,12 @@ export function AuthForm() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password">Пароль</Label>
               <Input
                 id="password"
                 name="password"
                 type="password"
                 required
-                onChange={handleInputChange}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="firstName">First Name (optional)</Label>
-              <Input
-                id="firstName"
-                name="firstName"
-                type="text"
-                onChange={handleInputChange}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="lastName">Last Name (optional)</Label>
-              <Input
-                id="lastName"
-                name="lastName"
-                type="text"
                 onChange={handleInputChange}
               />
             </div>
@@ -150,9 +155,13 @@ export function AuthForm() {
               disabled={registerMutation.isLoading}
             >
               {registerMutation.isLoading ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : null}
-              Register
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Регистрация...
+                </>
+              ) : (
+                "Зарегистрироваться"
+              )}
             </Button>
           </form>
         </TabsContent>

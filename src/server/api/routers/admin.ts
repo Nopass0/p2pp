@@ -1609,10 +1609,10 @@ export const adminRouter = createTRPCRouter({
       }, 0);
 
       // Считаем прибыль от P2P транзакций
-      const p2pRevenue = p2pTransactions.reduce((sum, tx) => {
-        return sum + (tx.amount || 0);
-      }, 0);
-
+      const p2pRevenue = p2pTransactions.reduce(
+        (sum, tx) => sum + (tx.amount || 0),
+        0,
+      );
       return gateRevenue + p2pRevenue;
     }),
   getAggregatedStats: adminProcedure
@@ -1685,41 +1685,273 @@ export const adminRouter = createTRPCRouter({
     .input(deleteEmployeeInput)
     .mutation(async ({ ctx, input }) => {
       try {
-        const employee = await ctx.db.user.findUnique({
-          where: { id: input.id }
-        });
+        // Delete all related records in a transaction
+        await ctx.db.$transaction([
+          // Delete work report files first
+          ctx.db.workReportFile.deleteMany({
+            where: {
+              report: {
+                workTime: {
+                  userId: input.id
+                }
+              }
+            }
+          }),
+          // Delete work reports
+          ctx.db.workReport.deleteMany({
+            where: {
+              workTime: {
+                userId: input.id
+              }
+            }
+          }),
+          // Delete work times
+          ctx.db.workTime.deleteMany({
+            where: { userId: input.id }
+          }),
+          // Delete transaction matches
+          ctx.db.transactionMatch.deleteMany({
+            where: { userId: input.id }
+          }),
+          // Delete P2P transactions
+          ctx.db.p2PTransaction.deleteMany({
+            where: { userId: input.id }
+          }),
+          // Delete receipts for gate transactions
+          ctx.db.receipt.deleteMany({
+            where: {
+              GateTransaction: {
+                userId: input.id
+              }
+            }
+          }),
+          // Delete gate transactions
+          ctx.db.gateTransaction.deleteMany({
+            where: { userId: input.id }
+          }),
+          // Delete gate cookies
+          ctx.db.gateCookie.deleteMany({
+            where: { userId: input.id }
+          }),
+          // Delete Tron transactions
+          ctx.db.tronTransaction.deleteMany({
+            where: { userId: input.id }
+          }),
+          // Delete Tron wallet
+          ctx.db.tronWallet.deleteMany({
+            where: { userId: input.id }
+          }),
+          // Delete telegram transactions
+          ctx.db.telegramTransaction.deleteMany({
+            where: { userId: input.id }
+          }),
+          // Delete employee expenses
+          ctx.db.employeeExpense.deleteMany({
+            where: { userId: input.id }
+          }),
+          // Delete employee comments
+          ctx.db.employeeComment.deleteMany({
+            where: { userId: input.id }
+          }),
+          // Delete appeals
+          ctx.db.appeal.deleteMany({
+            where: { userId: input.id }
+          }),
+          // Delete admin actions
+          ctx.db.adminAction.deleteMany({
+            where: { userId: input.id }
+          }),
+          // Delete screenshots
+          ctx.db.screenshot.deleteMany({
+            where: { userId: input.id }
+          }),
+          // Delete user activity logs
+          ctx.db.userActivityLog.deleteMany({
+            where: { userId: input.id }
+          }),
+          // Delete user sessions
+          ctx.db.userSession.deleteMany({
+            where: { userId: input.id }
+          }),
+          // Delete sessions
+          ctx.db.session.deleteMany({
+            where: { userId: input.id }
+          }),
+          // Delete device tokens
+          ctx.db.deviceToken.deleteMany({
+            where: { userId: input.id }
+          }),
+          // Finally delete the employee
+          ctx.db.user.delete({
+            where: { id: input.id }
+          })
+        ]);
 
-        if (!employee) {
-          throw new TRPCError({
-            code: "NOT_FOUND",
-            message: "Employee not found"
-          });
-        }
-
-        // Delete all related data in a transaction
-        const deleteOperations = [
-          ctx.db.transactionMatch.deleteMany({ where: { userId: input.id } }),
-          ctx.db.p2PTransaction.deleteMany({ where: { userId: input.id } }),
-          ctx.db.gateTransaction.deleteMany({ where: { userId: input.id } }),
-          ctx.db.employeeExpense.deleteMany({ where: { employeeId: input.id } }),
-          ctx.db.workTime.deleteMany({ where: { employeeId: input.id } }),
-          ctx.db.employeeComment.deleteMany({ where: { employeeId: input.id } }),
-          ctx.db.user.delete({ where: { id: input.id } })
-        ];
-
-        await ctx.db.$transaction(deleteOperations);
-
-        return { id: input.id };
-
+        return { success: true };
       } catch (error) {
-        console.error("Error deleting employee:", error);
+        console.log("Error deleting employee:", input?.id);
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: "Failed to delete employee",
+          message: "Failed to delete employee. Please try again.",
           cause: error
         });
       }
     }),
+  // App version management
+  uploadAppVersion: adminProcedure
+    .input(z.object({
+      version: z.string(),
+      fileName: z.string(),
+      hash: z.string(),
+      downloadUrl: z.string(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      try {
+        // First, if this is a new version, set all other versions as non-main
+        await ctx.db.appVersion.updateMany({
+          where: { isMain: true },
+          data: { isMain: false }
+        });
+
+        // Create new version record
+        const version = await ctx.db.appVersion.create({
+          data: {
+            ...input,
+            isMain: true, // New version becomes main by default
+            uploadedBy: ctx.user.id,
+          }
+        });
+
+        return { success: true, version };
+      } catch (error) {
+        console.error("Error uploading app version:", error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to upload app version",
+          cause: error
+        });
+      }
+    }),
+
+  getAppVersions: adminProcedure
+    .query(async ({ ctx }) => {
+      try {
+        const versions = await ctx.db.appVersion.findMany({
+          orderBy: { createdAt: 'desc' },
+          include: {
+            user: {
+              select: {
+                login: true,
+                firstName: true,
+                lastName: true
+              }
+            }
+          }
+        });
+        return versions;
+      } catch (error) {
+        console.error("Error fetching app versions:", error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to fetch app versions",
+          cause: error
+        });
+      }
+    }),
+
+  setMainVersion: adminProcedure
+    .input(z.object({
+      id: z.number()
+    }))
+    .mutation(async ({ ctx, input }) => {
+      try {
+        // First set all versions as non-main
+        await ctx.db.appVersion.updateMany({
+          where: { isMain: true },
+          data: { isMain: false }
+        });
+
+        // Set the selected version as main
+        await ctx.db.appVersion.update({
+          where: { id: input.id },
+          data: { isMain: true }
+        });
+
+        return { success: true };
+      } catch (error) {
+        console.error("Error setting main version:", error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to set main version",
+          cause: error
+        });
+      }
+    }),
+
+  getMainVersion: protectedProcedure
+    .query(async ({ ctx }) => {
+      try {
+        const mainVersion = await ctx.db.appVersion.findFirst({
+          where: { isMain: true },
+          orderBy: { createdAt: 'desc' }
+        });
+        return mainVersion;
+      } catch (error) {
+        console.error("Error fetching main version:", error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to fetch main version",
+          cause: error
+        });
+      }
+    }),
+
+  // Domains management
+  getAllowedDomains: protectedProcedure
+    .query(async ({ ctx }) => {
+      return ctx.db.allowedDomain.findMany({
+        orderBy: { createdAt: "desc" },
+      });
+    }),
+
+  addAllowedDomain: protectedProcedure
+    .input(z.object({
+      domain: z.string().url(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const formattedDomain = input.domain.replace(/\/$/, ""); // Remove trailing slash
+      const domains = [];
+      
+      // Create both http and https versions if not present
+      const httpDomain = formattedDomain.replace(/^https?:\/\//, "http://");
+      const httpsDomain = formattedDomain.replace(/^https?:\/\//, "https://");
+      
+      // Add both versions
+      for (const domain of [httpDomain, httpsDomain]) {
+        try {
+          const result = await ctx.db.allowedDomain.create({
+            data: { domain },
+          });
+          domains.push(result);
+        } catch (error) {
+          // Skip if domain already exists
+          if (error.code !== "P2002") throw error;
+        }
+      }
+      
+      return domains;
+    }),
+
+  deleteAllowedDomain: protectedProcedure
+    .input(z.object({
+      id: z.string(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      return ctx.db.allowedDomain.delete({
+        where: { id: input.id },
+      });
+    }),
+
 });
 
 // Helper functions

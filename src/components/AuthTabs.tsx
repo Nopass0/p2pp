@@ -18,15 +18,15 @@ export function AuthTabs() {
   return (
     <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
       <TabsList className="grid w-full grid-cols-2">
-        <TabsTrigger value="login">Login</TabsTrigger>
-        <TabsTrigger value="register">Register</TabsTrigger>
+        <TabsTrigger value="login">Вход</TabsTrigger>
+        <TabsTrigger value="register">Регистрация</TabsTrigger>
       </TabsList>
       <TabsContent value="login">
         <Card>
           <CardHeader>
-            <CardTitle>Login</CardTitle>
+            <CardTitle>Вход в систему</CardTitle>
             <CardDescription>
-              Enter your credentials to access your account
+              Введите свои данные для входа в аккаунт
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -37,9 +37,9 @@ export function AuthTabs() {
       <TabsContent value="register">
         <Card>
           <CardHeader>
-            <CardTitle>Register</CardTitle>
+            <CardTitle>Регистрация</CardTitle>
             <CardDescription>
-              Create a new account to get started
+              Создайте новый аккаунт для начала работы
             </CardDescription>
           </CardHeader>
           <CardContent>

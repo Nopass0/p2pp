@@ -121,7 +121,7 @@ export default function UserComponent() {
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={user.photoUrl}
-                  alt={displayName}
+                  alt={user.login}
                   className="h-full w-full object-cover"
                 />
               ) : (
@@ -131,9 +131,9 @@ export default function UserComponent() {
               )}
             </Avatar>
             <div className="flex flex-col items-start text-left">
-              <span className="text-sm font-medium">{displayName}</span>
+              <span className="text-sm font-medium">{user.login}</span>
               <span className="text-xs text-muted-foreground">
-                #{user.telegramId}
+                #{user.id}
               </span>
             </div>
           </Button>
