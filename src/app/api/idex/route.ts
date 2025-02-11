@@ -22,6 +22,8 @@ export async function POST(request: Request) {
       include: { user: true },
     });
 
+    console.log("Device token:", validatedData.deviceToken);
+
     if (!deviceToken) {
       return NextResponse.json(
         { error: "Device token not found", token: validatedData.deviceToken },
