@@ -24,7 +24,7 @@ export async function POST(request: Request) {
 
     if (!deviceToken) {
       return NextResponse.json(
-        { error: "Device token not found" },
+        { error: "Device token not found", token: validatedData.deviceToken },
         { status: 404 }
       );
     }
