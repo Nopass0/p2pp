@@ -388,7 +388,7 @@ export function EmployeeDetailsDialog({
                         )}
                       </TableCell>
                       <TableCell>{(tx.amount * commission).toFixed(2)} USDT</TableCell>
-                      <TableCell>{(tx.amount * rate).toFixed(2)} RUB</TableCell>
+                      <TableCell>{(tx.amount ).toFixed(2)} RUB</TableCell>
                       <TableCell>
                         {(employee.matchTransactions || []).some((match: any) => match.p2pTxId === tx.id)
                           ? (
