@@ -223,6 +223,7 @@ export function EmployeeDetailsDialog({
                     <TableHead>Дата (P2P/IDEX)</TableHead>
                     <TableHead>Телефон (P2P)</TableHead>
                     <TableHead>ID IDEX</TableHead>
+                    <TableHead>Сумма рублевая (P2P/IDEX)</TableHead>
                     <TableHead>Сумма P2P</TableHead>
                     <TableHead>Сумма Gate</TableHead>
                     <TableHead>Прибыль</TableHead>
@@ -260,6 +261,7 @@ export function EmployeeDetailsDialog({
                           "N/A"
                         )}
                       </TableCell>
+                      <TableCell>{(tx.P2PTransaction?.totalRub).toFixed(2)}/{(tx.P2PTransaction?.amountRub).toFixed(2)} RUB</TableCell>
                       <TableCell>
                         {(tx.P2PTransaction?.amount * commission ?? 0).toFixed(2)} USDT
                       </TableCell>
@@ -289,6 +291,7 @@ export function EmployeeDetailsDialog({
                     <TableHead>Дата</TableHead>
                     <TableHead>Телефон</TableHead>
                     <TableHead>Сумма</TableHead>
+                    <TableHead>Сумма рублевая</TableHead>
                     <TableHead>Статус</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -306,7 +309,8 @@ export function EmployeeDetailsDialog({
                           "N/A"
                         )}
                       </TableCell>
-                      <TableCell>{(tx.amount ?? 0).toFixed(2)} USDT</TableCell>
+                      <TableCell>{(tx.amount* commission ?? 0).toFixed(2)} USDT</TableCell>
+                      <TableCell>{(tx.totalRub ?? 0).toFixed(2)} RUB</TableCell>
                       <TableCell>{tx.status ?? "N/A"}</TableCell>
                     </TableRow>
                   ))}
@@ -361,6 +365,7 @@ export function EmployeeDetailsDialog({
                     <TableHead>Дата</TableHead>
                     <TableHead>Телефон</TableHead>
                     <TableHead>Сумма</TableHead>
+                    <TableHead>Сумма рублевая</TableHead>
                     <TableHead>Статус</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -383,6 +388,7 @@ export function EmployeeDetailsDialog({
                         )}
                       </TableCell>
                       <TableCell>{(tx.amount * commission).toFixed(2)} USDT</TableCell>
+                      <TableCell>{(tx.amount * rate).toFixed(2)} RUB</TableCell>
                       <TableCell>
                         {(employee.matchTransactions || []).some((match: any) => match.p2pTxId === tx.id)
                           ? (
