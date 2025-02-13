@@ -9,6 +9,8 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { format } from "date-fns"
 import { ru } from "date-fns/locale"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 
 interface EmployeeDetailsDialogProps {
   isOpen: boolean
@@ -29,7 +31,7 @@ function hashToColor(str: string): string {
   return `hsl(${hue}, 70%, 50%)`
 }
 
-/** Индикатор для телефонного номера – стилизованный так же, как для id IDEX */
+/** Индикатор для телефонного номера */
 const PhoneBadge = ({ phone }: { phone: string }) => {
   if (!phone) return null
   const color = hashToColor(phone)
@@ -49,7 +51,7 @@ const PhoneBadge = ({ phone }: { phone: string }) => {
   )
 }
 
-/** Индикатор для id IDEX с прозрачным бордером и тонкой тенью */
+/** Индикатор для ID IDEX */
 const IdexBadge = ({ idex }: { idex: string }) => {
   if (!idex) return null
   const color = hashToColor(idex)
@@ -69,7 +71,7 @@ const IdexBadge = ({ idex }: { idex: string }) => {
   )
 }
 
-/** Компонент для форматированного вывода даты и времени */
+/** Вывод даты и времени в одной строке */
 interface FormattedDateTimeProps {
   date?: string | Date | null
 }
@@ -78,18 +80,16 @@ const FormattedDateTime = ({ date }: FormattedDateTimeProps) => {
   if (!date) return <span>N/A</span>
   const d = new Date(date)
   return (
-    <div>
-      <div>{format(d, "d MMMM yyyy'г.'", { locale: ru })}</div>
-      <div className="inline-block bg-gray-200 px-2 py-1 rounded">{format(d, "HH:mm")}</div>
-    </div>
+    <span className="inline-flex items-center">
+      <span>{format(d, "d MMMM yyyy'г.'", { locale: ru })}</span>
+      <span className="ml-2 inline-block bg-gray-200 dark:bg-gray-700 px-2 py-0.5 rounded">
+        {format(d, "HH:mm")}
+      </span>
+    </span>
   )
 }
 
-/** Универсальная функция сортировки по дате.
- * @param txs Массив транзакций
- * @param dateGetter Функция, которая из транзакции возвращает дату
- * @param sortOrder Порядок сортировки: "asc" или "desc"
- */
+/** Универсальная функция сортировки по дате */
 const sortTransactionsByDate = (
   txs: any[],
   dateGetter: (tx: any) => Date,
@@ -116,11 +116,10 @@ export function EmployeeDetailsDialog({
 
   if (!employee) return null
 
-  // Вычисление агрегированных показателей
+  // Расчёт агрегированных показателей
   const matchedTransactions = (employee.matchTransactions || []).filter((tx: any) => {
     const p2pDate = tx.P2PTransaction?.completedAt ? new Date(tx.P2PTransaction.completedAt) : null
     const gateDate = tx.GateTransaction?.approvedAt ? new Date(tx.GateTransaction.approvedAt) : null
-
     return (p2pDate && p2pDate >= fromDate && p2pDate <= toDate) ||
            (gateDate && gateDate >= fromDate && gateDate <= toDate)
   })
@@ -130,7 +129,6 @@ export function EmployeeDetailsDialog({
     matchedTransactions.reduce((sum: number, tx: any) => sum + (tx.P2PTransaction?.amount ?? 0), 0) * commission
 
   const grossIncome = matchedTransactions.reduce((sum: number, tx: any) => sum + (tx.GateTransaction?.totalUsdt ?? 0), 0)
-
   const grossProfit = grossIncome - grossExpense
   const profitPercentage = grossExpense ? (grossProfit / grossExpense) * 100 : 0
   const matchedCount = matchedTransactions.length
@@ -151,7 +149,7 @@ export function EmployeeDetailsDialog({
     new Date(tx.createdAt) <= toDate
   )
 
-  // Функции для получения даты из транзакций для сортировки
+  // Функции для получения дат транзакций
   const getMatchedTxDate = (tx: any) =>
     tx.P2PTransaction?.completedAt
       ? new Date(tx.P2PTransaction.completedAt)
@@ -165,7 +163,7 @@ export function EmployeeDetailsDialog({
   const getGateTxDate = (tx: any) =>
     tx.approvedAt ? new Date(tx.approvedAt) : new Date(tx.createdAt)
 
-  // Применяем сортировку к массивам транзакций
+  // Сортировка транзакций
   const sortedMatchedTransactions = sortTransactionsByDate(matchedTransactions, getMatchedTxDate, sortOrder)
   const sortedUnmatchedP2PTransactions = sortTransactionsByDate(unmatchedP2PTransactions, getP2PTxDate, sortOrder)
   const sortedUnmatchedGateTransactions = sortTransactionsByDate(unmatchedGateTransactions, getGateTxDate, sortOrder)
@@ -186,7 +184,7 @@ export function EmployeeDetailsDialog({
     sortOrder
   )
 
-  // Функция фильтрации по поисковому запросу
+  // Фильтрация по поисковому запросу
   const filterData = (data: any[]) => {
     if (!searchQuery) return data
     return data.filter(tx => JSON.stringify(tx).toLowerCase().includes(searchQuery.toLowerCase()))
@@ -198,10 +196,11 @@ export function EmployeeDetailsDialog({
   const filteredAllP2PTransactions = filterData(sortedAllP2PTransactions)
   const filteredAllGateTransactions = filterData(sortedAllGateTransactions)
 
-  // Экспорт текущей открытой таблицы в .xls
+  // Экспорт текущей открытой таблицы в CSV (с BOM для корректного открытия в Google Sheets)
   const handleExport = () => {
     let dataToExport: any[] = []
     let headers: string[] = []
+
     switch (activeTab) {
       case "matched":
         headers = ["Дата (P2P)", "Время (P2P)", "Дата (IDEX)", "Время (IDEX)", "Телефон (P2P)", "ID IDEX", "Сумма рублевая (P2P)", "Сумма рублевая (IDEX)", "Сумма P2P", "Сумма Gate", "Прибыль"]
@@ -283,16 +282,18 @@ export function EmployeeDetailsDialog({
         break
     }
 
-    const csvContent = [
-      headers.join("\t"),
-      ...dataToExport.map(row => row.join("\t"))
-    ].join("\n")
+    // Добавляем BOM для корректного открытия в Google Sheets
+    const csvContent =
+      "\uFEFF" +
+      headers.join("\t") +
+      "\n" +
+      dataToExport.map(row => row.join("\t")).join("\n")
 
-    const blob = new Blob([csvContent], { type: "application/vnd.ms-excel" })
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
     const url = URL.createObjectURL(blob)
     const link = document.createElement("a")
     link.href = url
-    link.download = `${activeTab}_export.xls`
+    link.download = `${activeTab}_export.csv`
     link.click()
     URL.revokeObjectURL(url)
   }
@@ -315,20 +316,20 @@ export function EmployeeDetailsDialog({
               setDate={(date) => onDateChange(fromDate, date)}
               label="По"
             />
-            <button
+            <Button
               onClick={() => setSortOrder(sortOrder === "asc" ? "desc" : "asc")}
-              className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 transition duration-300"
+              variant="secondary"
             >
               Сортировать по дате: {sortOrder === "asc" ? "От меньшего к большему" : "От большего к меньшему"}
-            </button>
+            </Button>
           </div>
         </DialogHeader>
 
-        {/* Аггрегированные показатели */}
+        {/* Агрегированные показатели */}
         <div className="mt-4">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-sm font-medium">Валовый расход</CardTitle>
               </CardHeader>
               <CardContent>
@@ -336,7 +337,7 @@ export function EmployeeDetailsDialog({
               </CardContent>
             </Card>
             <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-sm font-medium">Валовый доход</CardTitle>
               </CardHeader>
               <CardContent>
@@ -344,7 +345,7 @@ export function EmployeeDetailsDialog({
               </CardContent>
             </Card>
             <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-sm font-medium">Валовая прибыль</CardTitle>
               </CardHeader>
               <CardContent>
@@ -355,7 +356,7 @@ export function EmployeeDetailsDialog({
               </CardContent>
             </Card>
             <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-sm font-medium">Метченные ордера</CardTitle>
               </CardHeader>
               <CardContent>
@@ -407,19 +408,15 @@ export function EmployeeDetailsDialog({
               </TabsTrigger>
             </TabsList>
             <div className="flex items-center gap-2">
-              <input
-                type="text"
+              <Input
                 placeholder="Поиск..."
-                className="border border-gray-300 rounded px-2 py-1"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-64"
               />
-              <button
-                onClick={handleExport}
-                className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition duration-300"
-              >
+              <Button onClick={handleExport} variant="destructive">
                 Экспорт .xls
-              </button>
+              </Button>
             </div>
           </div>
 
@@ -428,7 +425,7 @@ export function EmployeeDetailsDialog({
             <ScrollArea className="h-[400px]">
               <Table>
                 <TableHeader>
-                  <TableRow>
+                  <TableRow className="h-8">
                     <TableHead>Дата (P2P/IDEX)</TableHead>
                     <TableHead>Телефон (P2P)</TableHead>
                     <TableHead>ID IDEX</TableHead>
@@ -440,23 +437,19 @@ export function EmployeeDetailsDialog({
                 </TableHeader>
                 <TableBody>
                   {filteredMatchedTransactions.map((tx: any, index: number) => (
-                    <TableRow key={tx.id || `matched-${index}`}>
+                    <TableRow key={tx.id || `matched-${index}`} className="h-8">
                       <TableCell>
                         <div className="flex flex-col gap-1">
-                          <div>
-                            {tx.P2PTransaction?.completedAt ? (
-                              <FormattedDateTime date={tx.P2PTransaction.completedAt} />
-                            ) : (
-                              "N/A"
-                            )}
-                          </div>
-                          <div>
-                            {tx.GateTransaction?.approvedAt ? (
-                              <FormattedDateTime date={tx.GateTransaction.approvedAt} />
-                            ) : (
-                              "N/A"
-                            )}
-                          </div>
+                          {tx.P2PTransaction?.completedAt ? (
+                            <FormattedDateTime date={tx.P2PTransaction.completedAt} />
+                          ) : (
+                            "N/A"
+                          )}
+                          {tx.GateTransaction?.approvedAt ? (
+                            <FormattedDateTime date={tx.GateTransaction.approvedAt} />
+                          ) : (
+                            "N/A"
+                          )}
                         </div>
                       </TableCell>
                       <TableCell>
@@ -510,7 +503,7 @@ export function EmployeeDetailsDialog({
             <ScrollArea className="h-[400px]">
               <Table>
                 <TableHeader>
-                  <TableRow>
+                  <TableRow className="h-8">
                     <TableHead>Дата</TableHead>
                     <TableHead>Телефон</TableHead>
                     <TableHead>Сумма</TableHead>
@@ -520,7 +513,7 @@ export function EmployeeDetailsDialog({
                 </TableHeader>
                 <TableBody>
                   {filteredUnmatchedP2PTransactions.map((tx: any, index: number) => (
-                    <TableRow key={tx.id || `unmatched-p2p-${index}`}>
+                    <TableRow key={tx.id || `unmatched-p2p-${index}`} className="h-8">
                       <TableCell>
                         <FormattedDateTime date={getP2PTxDate(tx)} />
                       </TableCell>
@@ -549,7 +542,7 @@ export function EmployeeDetailsDialog({
             <ScrollArea className="h-[400px]">
               <Table>
                 <TableHeader>
-                  <TableRow>
+                  <TableRow className="h-8">
                     <TableHead>Дата</TableHead>
                     <TableHead>ID транзакции</TableHead>
                     <TableHead>ID IDEX</TableHead>
@@ -560,7 +553,7 @@ export function EmployeeDetailsDialog({
                 </TableHeader>
                 <TableBody>
                   {filteredUnmatchedGateTransactions.map((tx: any, index: number) => (
-                    <TableRow key={tx.id || `unmatched-gate-${index}`}>
+                    <TableRow key={tx.id || `unmatched-gate-${index}`} className="h-8">
                       <TableCell>
                         <FormattedDateTime date={getGateTxDate(tx)} />
                       </TableCell>
@@ -590,7 +583,7 @@ export function EmployeeDetailsDialog({
             <ScrollArea className="h-[400px]">
               <Table>
                 <TableHeader>
-                  <TableRow>
+                  <TableRow className="h-8">
                     <TableHead>Дата</TableHead>
                     <TableHead>Телефон</TableHead>
                     <TableHead>Сумма</TableHead>
@@ -600,7 +593,7 @@ export function EmployeeDetailsDialog({
                 </TableHeader>
                 <TableBody>
                   {filteredAllP2PTransactions.map((tx: any, index: number) => (
-                    <TableRow key={tx.id || `all-p2p-${index}`}>
+                    <TableRow key={tx.id || `all-p2p-${index}`} className="h-8">
                       <TableCell>
                         <FormattedDateTime date={tx.completedAt ? tx.completedAt : tx.createdAt} />
                       </TableCell>
@@ -619,12 +612,12 @@ export function EmployeeDetailsDialog({
                       <TableCell>
                         {(employee.matchTransactions || []).some((match: any) => match.p2pTxId === tx.id)
                           ? (
-                            <span className="bg-green-500 text-white rounded-full px-2 py-1 text-xs">
+                            <span className="bg-green-500 text-white rounded-full px-2 py-0.5 text-xs">
                               Замечен
                             </span>
                           )
                           : (
-                            <span className="bg-yellow-500 text-white rounded-full px-2 py-1 text-xs">
+                            <span className="bg-yellow-500 text-white rounded-full px-2 py-0.5 text-xs">
                               Не замечен
                             </span>
                           )}
@@ -641,7 +634,7 @@ export function EmployeeDetailsDialog({
             <ScrollArea className="h-[400px]">
               <Table>
                 <TableHeader>
-                  <TableRow>
+                  <TableRow className="h-8">
                     <TableHead>Дата</TableHead>
                     <TableHead>ID IDEX</TableHead>
                     <TableHead>Сумма</TableHead>
@@ -650,7 +643,7 @@ export function EmployeeDetailsDialog({
                 </TableHeader>
                 <TableBody>
                   {filteredAllGateTransactions.map((tx: any, index: number) => (
-                    <TableRow key={tx.id || `all-gate-${index}`}>
+                    <TableRow key={tx.id || `all-gate-${index}`} className="h-8">
                       <TableCell>
                         <FormattedDateTime date={tx.approvedAt ? tx.approvedAt : tx.createdAt} />
                       </TableCell>
@@ -668,12 +661,12 @@ export function EmployeeDetailsDialog({
                       <TableCell>
                         {(employee.matchTransactions || []).some((match: any) => match.gateTxId === tx.id)
                           ? (
-                            <span className="bg-green-500 text-white rounded-full px-2 py-1 text-xs">
+                            <span className="bg-green-500 text-white rounded-full px-2 py-0.5 text-xs">
                               Замечен
                             </span>
                           )
                           : (
-                            <span className="bg-yellow-500 text-white rounded-full px-2 py-1 text-xs">
+                            <span className="bg-yellow-500 text-white rounded-full px-2 py-0.5 text-xs">
                               Не замечен
                             </span>
                           )}
