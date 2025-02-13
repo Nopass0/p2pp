@@ -8,44 +8,45 @@ datasource db {
 }
 
 model User {
-  id                  Int                   @id @default(autoincrement())
-  telegramId          String?               @unique
-  login               String                @unique
-  password            String
-  username            String?
-  firstName           String?
-  lastName            String?
-  middleName          String?
-  photoUrl            String?
-  passportPhoto       String?
-  deposit             Float                 @default(0)
-  commissionRate      Float?
-  salaryPercentage    Float                 @default(0.5)
-  initialBalance      Float?
-  isAdmin             Boolean               @default(false)
-  createdAt           DateTime              @default(now())
-  updatedAt           DateTime              @updatedAt
-  tgAuthToken         String?
-  geminiToken         String?
-  currentTgPhone      String?
-  adminActions        AdminAction[]
-  appeals             Appeal[]
-  DeviceToken         DeviceToken[]
-  comments            EmployeeComment[]
-  employeeExpenses    EmployeeExpense[]
-  gateCookies         GateCookie[]
-  gateTransactions    GateTransaction[]
-  P2PTransaction      P2PTransaction[]
-  screenshots         Screenshot[]
-  sessions            Session[]
-  TelegramTransaction TelegramTransaction[]
-  TransactionMatch    TransactionMatch[]
-  TronTransaction     TronTransaction[]
-  TronWallet          TronWallet?
-  activityLogs        UserActivityLog[]
-  UserSession         UserSession[]
-  WorkTime            WorkTime[]
-  AppVersion          AppVersion[]
+  id                   Int                    @id @default(autoincrement())
+  telegramId           String?                @unique
+  login                String                 @unique
+  password             String
+  username             String?
+  firstName            String?
+  lastName             String?
+  middleName           String?
+  photoUrl             String?
+  passportPhoto        String?
+  deposit              Float                  @default(0)
+  commissionRate       Float?
+  salaryPercentage     Float                  @default(0.5)
+  initialBalance       Float?
+  isAdmin              Boolean                @default(false)
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime               @updatedAt
+  tgAuthToken          String?
+  geminiToken          String?
+  currentTgPhone       String?
+  adminActions         AdminAction[]
+  AppVersion           AppVersion[]
+  appeals              Appeal[]
+  DeviceToken          DeviceToken[]
+  comments             EmployeeComment[]
+  employeeExpenses     EmployeeExpense[]
+  gateCookies          GateCookie[]
+  gateTransactions     GateTransaction[]
+  GateTransactionOwner GateTransactionOwner[]
+  P2PTransaction       P2PTransaction[]
+  screenshots          Screenshot[]
+  sessions             Session[]
+  TelegramTransaction  TelegramTransaction[]
+  TransactionMatch     TransactionMatch[]
+  TronTransaction      TronTransaction[]
+  TronWallet           TronWallet?
+  activityLogs         UserActivityLog[]
+  UserSession          UserSession[]
+  WorkTime             WorkTime[]
 
   @@index([login])
   @@index([telegramId])
@@ -154,36 +155,37 @@ model GateCookie {
 }
 
 model GateTransaction {
-  id               Int                @id @default(autoincrement())
-  userId           Int
-  transactionId    String
-  paymentMethodId  Int
-  wallet           String
-  amountRub        Float
-  amountUsdt       Float
-  totalRub         Float
-  totalUsdt        Float
-  idexId           String?
-  status           Int
-  bankName         String?
-  bankLabel        String?
-  paymentMethod    String?
-  course           Float?
-  successCount     Int?
-  successRate      Float?
-  approvedAt       DateTime?
-  expiredAt        DateTime?
-  createdAt        DateTime           @default(now())
-  updatedAt        DateTime           @updatedAt
-  attachments      Json?
-  bankCode         String?
-  traderId         Int?
-  traderName       String?
-  commissionRate   Float?
-  initialBalance   Float?
-  user             User               @relation(fields: [userId], references: [id], onDelete: Cascade)
-  Receipt          Receipt[]
-  TransactionMatch TransactionMatch[]
+  id                   Int                    @id @default(autoincrement())
+  userId               Int
+  transactionId        String                 @unique
+  paymentMethodId      Int
+  wallet               String
+  amountRub            Float
+  amountUsdt           Float
+  totalRub             Float
+  totalUsdt            Float
+  idexId               String?
+  status               Int
+  bankName             String?
+  bankLabel            String?
+  paymentMethod        String?
+  course               Float?
+  successCount         Int?
+  successRate          Float?
+  approvedAt           DateTime?
+  expiredAt            DateTime?
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime               @updatedAt
+  attachments          Json?
+  bankCode             String?
+  traderId             Int?
+  traderName           String?
+  commissionRate       Float?
+  initialBalance       Float?
+  user                 User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  GateTransactionOwner GateTransactionOwner[]
+  Receipt              Receipt[]
+  TransactionMatch     TransactionMatch[]
 
   @@index([userId, createdAt])
   @@index([transactionId])
@@ -438,9 +440,15 @@ model AppVersion {
   @@index([isMain])
 }
 
-model AllowedDomain {
-  id        String   @id @default(cuid())
-  domain    String   @unique
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+model GateTransactionOwner {
+  id                Int             @id @default(autoincrement())
+  userId            Int
+  gateTransactionId Int
+  matched           Boolean         @default(false)
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime
+  GateTransaction   GateTransaction @relation(fields: [gateTransactionId], references: [id])
+  User              User            @relation(fields: [userId], references: [id])
+
+  @@unique([userId, gateTransactionId])
 }
