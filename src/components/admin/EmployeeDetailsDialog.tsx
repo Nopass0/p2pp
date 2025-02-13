@@ -207,11 +207,36 @@ export function EmployeeDetailsDialog({
 
         <Tabs defaultValue="matched">
           <TabsList>
-            <TabsTrigger value="matched">Метченные транзакции</TabsTrigger>
-            <TabsTrigger value="unmatched-p2p">Незаметченные P2P</TabsTrigger>
-            <TabsTrigger value="unmatched-gate">Незаметченные Gate</TabsTrigger>
-            <TabsTrigger value="all-p2p">Все P2P транзакции</TabsTrigger>
-            <TabsTrigger value="all-gate">Все IDEX транзакции</TabsTrigger>
+            <TabsTrigger value="matched">
+              Метченные транзакции
+              <span className="ml-2 inline-flex items-center justify-center rounded-full bg-indigo-500 px-2 py-0.5 text-xs font-semibold text-white">
+                {sortedMatchedTransactions.length}
+              </span>
+            </TabsTrigger>
+            <TabsTrigger value="unmatched-p2p">
+              Незаметченные P2P
+              <span className="ml-2 inline-flex items-center justify-center rounded-full bg-indigo-500 px-2 py-0.5 text-xs font-semibold text-white">
+                {sortedUnmatchedP2PTransactions.length}
+              </span>
+            </TabsTrigger>
+            <TabsTrigger value="unmatched-gate">
+              Незаметченные Gate
+              <span className="ml-2 inline-flex items-center justify-center rounded-full bg-indigo-500 px-2 py-0.5 text-xs font-semibold text-white">
+                {sortedUnmatchedGateTransactions.length}
+              </span>
+            </TabsTrigger>
+            <TabsTrigger value="all-p2p">
+              Все P2P транзакции
+              <span className="ml-2 inline-flex items-center justify-center rounded-full bg-indigo-500 px-2 py-0.5 text-xs font-semibold text-white">
+                {sortedAllP2PTransactions.length}
+              </span>
+            </TabsTrigger>
+            <TabsTrigger value="all-gate">
+              Все IDEX транзакции
+              <span className="ml-2 inline-flex items-center justify-center rounded-full bg-indigo-500 px-2 py-0.5 text-xs font-semibold text-white">
+                {sortedAllGateTransactions.length}
+              </span>
+            </TabsTrigger>
           </TabsList>
 
           {/* Метченные транзакции */}
@@ -309,7 +334,7 @@ export function EmployeeDetailsDialog({
                           "N/A"
                         )}
                       </TableCell>
-                      <TableCell>{(tx.amount* commission ?? 0).toFixed(2)} USDT</TableCell>
+                      <TableCell>{(tx.amount * commission ?? 0).toFixed(2)} USDT</TableCell>
                       <TableCell>{(tx.totalRub ?? 0).toFixed(2)} RUB</TableCell>
                       <TableCell>{tx.status ?? "N/A"}</TableCell>
                     </TableRow>
