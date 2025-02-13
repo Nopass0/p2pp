@@ -27,7 +27,7 @@ function hashToColor(str: string): string {
   return `hsl(${hue}, 70%, 50%)`
 }
 
-/** Индикатор для телефонного номера – теперь стилизован так же, как и для id IDEX */
+/** Индикатор для телефонного номера – стилизованный так же, как для id IDEX */
 const PhoneBadge = ({ phone }: { phone: string }) => {
   if (!phone) return null
   const color = hashToColor(phone)
@@ -255,8 +255,8 @@ export function EmployeeDetailsDialog({
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {sortedMatchedTransactions.map((tx: any) => (
-                    <TableRow key={tx.id}>
+                  {sortedMatchedTransactions.map((tx: any, index: number) => (
+                    <TableRow key={tx.id || `matched-${index}`}>
                       <TableCell>
                         {tx.P2PTransaction?.completedAt
                           ? format(new Date(tx.P2PTransaction.completedAt), "dd.MM.yyyy HH:mm")
@@ -286,7 +286,9 @@ export function EmployeeDetailsDialog({
                           "N/A"
                         )}
                       </TableCell>
-                      <TableCell>{(tx.P2PTransaction?.totalRub ?? 0).toFixed(2)}/{(tx.GateTransaction?.amountRub ?? 0).toFixed(2)} RUB</TableCell>
+                      <TableCell>
+                        {(tx.P2PTransaction?.totalRub ?? 0).toFixed(2)}/{(tx.GateTransaction?.amountRub ?? 0).toFixed(2)} RUB
+                      </TableCell>
                       <TableCell>
                         {(tx.P2PTransaction?.amount * commission ?? 0).toFixed(2)} USDT
                       </TableCell>
@@ -297,8 +299,7 @@ export function EmployeeDetailsDialog({
                         {(
                           (tx.GateTransaction?.totalUsdt ?? 0) -
                           (tx.P2PTransaction?.amount * commission ?? 0)
-                        ).toFixed(2)}{" "}
-                        USDT
+                        ).toFixed(2)} USDT
                       </TableCell>
                     </TableRow>
                   ))}
@@ -321,8 +322,8 @@ export function EmployeeDetailsDialog({
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {sortedUnmatchedP2PTransactions.map((tx: any) => (
-                    <TableRow key={tx.id}>
+                  {sortedUnmatchedP2PTransactions.map((tx: any, index: number) => (
+                    <TableRow key={tx.id || `unmatched-p2p-${index}`}>
                       <TableCell>{format(getP2PTxDate(tx), "dd.MM.yyyy HH:mm")}</TableCell>
                       <TableCell>
                         {tx.currentTgPhone ? (
@@ -359,8 +360,8 @@ export function EmployeeDetailsDialog({
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {sortedUnmatchedGateTransactions.map((tx: any) => (
-                    <TableRow key={tx.id}>
+                  {sortedUnmatchedGateTransactions.map((tx: any, index: number) => (
+                    <TableRow key={tx.id || `unmatched-gate-${index}`}>
                       <TableCell>{format(getGateTxDate(tx), "dd.MM.yyyy HH:mm")}</TableCell>
                       <TableCell>{tx.transactionId ?? "N/A"}</TableCell>
                       <TableCell>
@@ -397,8 +398,8 @@ export function EmployeeDetailsDialog({
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {sortedAllP2PTransactions.map((tx: any) => (
-                    <TableRow key={tx.id}>
+                  {sortedAllP2PTransactions.map((tx: any, index: number) => (
+                    <TableRow key={tx.id || `all-p2p-${index}`}>
                       <TableCell>
                         {tx.completedAt
                           ? format(new Date(tx.completedAt), "dd.MM.yyyy HH:mm")
@@ -449,8 +450,8 @@ export function EmployeeDetailsDialog({
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {sortedAllGateTransactions.map((tx: any) => (
-                    <TableRow key={tx.id}>
+                  {sortedAllGateTransactions.map((tx: any, index: number) => (
+                    <TableRow key={tx.id || `all-gate-${index}`}>
                       <TableCell>
                         {tx.approvedAt
                           ? format(new Date(tx.approvedAt), "dd.MM.yyyy HH:mm")
