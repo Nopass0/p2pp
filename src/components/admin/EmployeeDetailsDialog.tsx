@@ -7,6 +7,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { DateTimePicker } from "@/components/ui/date-time-picker"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { format } from "date-fns"
+import { ru } from "date-fns/locale"
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 
 interface EmployeeDetailsDialogProps {
   isOpen: boolean
@@ -67,6 +69,22 @@ const IdexBadge = ({ idex }: { idex: string }) => {
   )
 }
 
+/** Компонент для форматированного вывода даты и времени */
+interface FormattedDateTimeProps {
+  date?: string | Date | null
+}
+
+const FormattedDateTime = ({ date }: FormattedDateTimeProps) => {
+  if (!date) return <span>N/A</span>
+  const d = new Date(date)
+  return (
+    <div>
+      <div>{format(d, "d MMMM yyyy'г.'", { locale: ru })}</div>
+      <div className="inline-block bg-gray-200 px-2 py-1 rounded">{format(d, "HH:mm")}</div>
+    </div>
+  )
+}
+
 /** Универсальная функция сортировки по дате.
  * @param txs Массив транзакций
  * @param dateGetter Функция, которая из транзакции возвращает дату
@@ -93,10 +111,12 @@ export function EmployeeDetailsDialog({
   onDateChange,
 }: EmployeeDetailsDialogProps) {
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc")
+  const [searchQuery, setSearchQuery] = useState("")
+  const [activeTab, setActiveTab] = useState("matched")
 
   if (!employee) return null
 
-  // Вычисление статистики
+  // Вычисление агрегированных показателей
   const matchedTransactions = (employee.matchTransactions || []).filter((tx: any) => {
     const p2pDate = tx.P2PTransaction?.completedAt ? new Date(tx.P2PTransaction.completedAt) : null
     const gateDate = tx.GateTransaction?.approvedAt ? new Date(tx.GateTransaction.approvedAt) : null
@@ -116,6 +136,8 @@ export function EmployeeDetailsDialog({
   const matchedCount = matchedTransactions.length
   const profitPerOrder = matchedCount ? grossProfit / matchedCount : 0
   const expensePerOrder = matchedCount ? grossExpense / matchedCount : 0
+
+  const aggregatedStats = { grossExpense, grossIncome, grossProfit, profitPercentage, matchedCount, profitPerOrder, expensePerOrder }
 
   const unmatchedP2PTransactions = (employee.P2PTransaction || []).filter((tx: any) =>
     !(employee.matchTransactions || []).some((match: any) => match.p2pTxId === tx.id) &&
@@ -164,6 +186,117 @@ export function EmployeeDetailsDialog({
     sortOrder
   )
 
+  // Функция фильтрации по поисковому запросу
+  const filterData = (data: any[]) => {
+    if (!searchQuery) return data
+    return data.filter(tx => JSON.stringify(tx).toLowerCase().includes(searchQuery.toLowerCase()))
+  }
+
+  const filteredMatchedTransactions = filterData(sortedMatchedTransactions)
+  const filteredUnmatchedP2PTransactions = filterData(sortedUnmatchedP2PTransactions)
+  const filteredUnmatchedGateTransactions = filterData(sortedUnmatchedGateTransactions)
+  const filteredAllP2PTransactions = filterData(sortedAllP2PTransactions)
+  const filteredAllGateTransactions = filterData(sortedAllGateTransactions)
+
+  // Экспорт текущей открытой таблицы в .xls
+  const handleExport = () => {
+    let dataToExport: any[] = []
+    let headers: string[] = []
+    switch (activeTab) {
+      case "matched":
+        headers = ["Дата (P2P)", "Время (P2P)", "Дата (IDEX)", "Время (IDEX)", "Телефон (P2P)", "ID IDEX", "Сумма рублевая (P2P)", "Сумма рублевая (IDEX)", "Сумма P2P", "Сумма Gate", "Прибыль"]
+        dataToExport = filteredMatchedTransactions.map((tx: any) => {
+          const p2pDate = tx.P2PTransaction?.completedAt ? new Date(tx.P2PTransaction.completedAt) : null
+          const gateDate = tx.GateTransaction?.approvedAt ? new Date(tx.GateTransaction.approvedAt) : null
+          return [
+            p2pDate ? format(p2pDate, "d MMMM yyyy'г.'", { locale: ru }) : "N/A",
+            p2pDate ? format(p2pDate, "HH:mm") : "N/A",
+            gateDate ? format(gateDate, "d MMMM yyyy'г.'", { locale: ru }) : "N/A",
+            gateDate ? format(gateDate, "HH:mm") : "N/A",
+            tx.P2PTransaction?.currentTgPhone || "N/A",
+            tx.GateTransaction?.idexId || "N/A",
+            (tx.P2PTransaction?.totalRub ?? 0).toFixed(2),
+            (tx.GateTransaction?.amountRub ?? 0).toFixed(2),
+            (tx.P2PTransaction?.amount * commission ?? 0).toFixed(2),
+            (tx.GateTransaction?.totalUsdt ?? 0).toFixed(2),
+            ((tx.GateTransaction?.totalUsdt ?? 0) - (tx.P2PTransaction?.amount * commission ?? 0)).toFixed(2),
+          ]
+        })
+        break
+      case "unmatched-p2p":
+        headers = ["Дата", "Телефон", "Сумма", "Сумма рублевая", "Статус"]
+        dataToExport = filteredUnmatchedP2PTransactions.map((tx: any) => {
+          const d = getP2PTxDate(tx)
+          return [
+            d ? format(d, "d MMMM yyyy'г.' HH:mm", { locale: ru }) : "N/A",
+            tx.currentTgPhone || "N/A",
+            (tx.amount * commission ?? 0).toFixed(2),
+            (tx.totalRub ?? 0).toFixed(2),
+            tx.status || "N/A",
+          ]
+        })
+        break
+      case "unmatched-gate":
+        headers = ["Дата", "ID транзакции", "ID IDEX", "Сумма", "Сумма рублевая", "Статус"]
+        dataToExport = filteredUnmatchedGateTransactions.map((tx: any) => {
+          const d = getGateTxDate(tx)
+          return [
+            d ? format(d, "d MMMM yyyy'г.' HH:mm", { locale: ru }) : "N/A",
+            tx.transactionId || "N/A",
+            tx.idexId || "N/A",
+            (tx.totalUsdt ?? 0).toFixed(2),
+            (tx.totalRub ?? 0).toFixed(2),
+            tx.status || "N/A",
+          ]
+        })
+        break
+      case "all-p2p":
+        headers = ["Дата", "Телефон", "Сумма", "Сумма рублевая", "Статус"]
+        dataToExport = filteredAllP2PTransactions.map((tx: any) => {
+          const d = tx.completedAt ? new Date(tx.completedAt) : new Date(tx.createdAt)
+          return [
+            d ? format(d, "d MMMM yyyy'г.' HH:mm", { locale: ru }) : "N/A",
+            tx.currentTgPhone || "N/A",
+            (tx.amount * commission).toFixed(2),
+            (tx.totalRub ?? 0).toFixed(2),
+            (employee.matchTransactions || []).some((match: any) => match.p2pTxId === tx.id)
+              ? "Замечен"
+              : "Не замечен",
+          ]
+        })
+        break
+      case "all-gate":
+        headers = ["Дата", "ID IDEX", "Сумма", "Статус"]
+        dataToExport = filteredAllGateTransactions.map((tx: any) => {
+          const d = tx.approvedAt ? new Date(tx.approvedAt) : new Date(tx.createdAt)
+          return [
+            d ? format(d, "d MMMM yyyy'г.' HH:mm", { locale: ru }) : "N/A",
+            tx.idexId || "N/A",
+            (tx.totalUsdt ?? 0).toFixed(2),
+            (employee.matchTransactions || []).some((match: any) => match.gateTxId === tx.id)
+              ? "Замечен"
+              : "Не замечен",
+          ]
+        })
+        break
+      default:
+        break
+    }
+
+    const csvContent = [
+      headers.join("\t"),
+      ...dataToExport.map(row => row.join("\t"))
+    ].join("\n")
+
+    const blob = new Blob([csvContent], { type: "application/vnd.ms-excel" })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement("a")
+    link.href = url
+    link.download = `${activeTab}_export.xls`
+    link.click()
+    URL.revokeObjectURL(url)
+  }
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-[90vw] max-h-[90vh]">
@@ -191,53 +324,104 @@ export function EmployeeDetailsDialog({
           </div>
         </DialogHeader>
 
-        <div className="grid grid-cols-2 gap-4 mb-4 mt-4">
-          <div className="space-y-2">
-            <div>Валовый расход: {grossExpense.toFixed(2)} USDT</div>
-            <div>Валовый доход: {grossIncome.toFixed(2)} USDT</div>
-            <div>Валовая прибыль: {grossProfit.toFixed(2)} USDT</div>
-            <div>Процент от выручки: {profitPercentage.toFixed(2)}%</div>
-          </div>
-          <div className="space-y-2">
-            <div>Количество метченных ордеров: {matchedCount}</div>
-            <div>Средняя прибыль на ордер: {profitPerOrder.toFixed(2)} USDT</div>
-            <div>Средний расход на ордер: {expensePerOrder.toFixed(2)} USDT</div>
+        {/* Аггрегированные показатели */}
+        <div className="mt-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Валовый расход</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{aggregatedStats.grossExpense.toFixed(2)} USDT</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Валовый доход</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{aggregatedStats.grossIncome.toFixed(2)} USDT</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Валовая прибыль</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{aggregatedStats.grossProfit.toFixed(2)} USDT</div>
+                <p className="text-xs text-muted-foreground">
+                  {aggregatedStats.profitPercentage.toFixed(2)}% от выручки
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Метченные ордера</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{aggregatedStats.matchedCount}</div>
+                <p className="text-xs text-muted-foreground">
+                  Ср. прибыль: {aggregatedStats.profitPerOrder.toFixed(2)} USDT
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Ср. расход: {aggregatedStats.expensePerOrder.toFixed(2)} USDT
+                </p>
+              </CardContent>
+            </Card>
           </div>
         </div>
 
-        <Tabs defaultValue="matched">
-          <TabsList>
-            <TabsTrigger value="matched">
-              Метченные транзакции
-              <span className="ml-2 inline-flex items-center justify-center rounded-full bg-indigo-500 px-2 py-0.5 text-xs font-semibold text-white">
-                {sortedMatchedTransactions.length}
-              </span>
-            </TabsTrigger>
-            <TabsTrigger value="unmatched-p2p">
-              Незаметченные P2P
-              <span className="ml-2 inline-flex items-center justify-center rounded-full bg-indigo-500 px-2 py-0.5 text-xs font-semibold text-white">
-                {sortedUnmatchedP2PTransactions.length}
-              </span>
-            </TabsTrigger>
-            <TabsTrigger value="unmatched-gate">
-              Незаметченные Gate
-              <span className="ml-2 inline-flex items-center justify-center rounded-full bg-indigo-500 px-2 py-0.5 text-xs font-semibold text-white">
-                {sortedUnmatchedGateTransactions.length}
-              </span>
-            </TabsTrigger>
-            <TabsTrigger value="all-p2p">
-              Все P2P транзакции
-              <span className="ml-2 inline-flex items-center justify-center rounded-full bg-indigo-500 px-2 py-0.5 text-xs font-semibold text-white">
-                {sortedAllP2PTransactions.length}
-              </span>
-            </TabsTrigger>
-            <TabsTrigger value="all-gate">
-              Все IDEX транзакции
-              <span className="ml-2 inline-flex items-center justify-center rounded-full bg-indigo-500 px-2 py-0.5 text-xs font-semibold text-white">
-                {sortedAllGateTransactions.length}
-              </span>
-            </TabsTrigger>
-          </TabsList>
+        {/* Вкладки, поиск и экспорт */}
+        <Tabs defaultValue="matched" onValueChange={setActiveTab}>
+          <div className="flex justify-between items-center mb-4">
+            <TabsList>
+              <TabsTrigger value="matched">
+                Метченные транзакции
+                <span className="ml-2 inline-flex items-center justify-center rounded-full bg-indigo-500 px-2 py-0.5 text-xs font-semibold text-white">
+                  {filteredMatchedTransactions.length}
+                </span>
+              </TabsTrigger>
+              <TabsTrigger value="unmatched-p2p">
+                Незаметченные P2P
+                <span className="ml-2 inline-flex items-center justify-center rounded-full bg-indigo-500 px-2 py-0.5 text-xs font-semibold text-white">
+                  {filteredUnmatchedP2PTransactions.length}
+                </span>
+              </TabsTrigger>
+              <TabsTrigger value="unmatched-gate">
+                Незаметченные Gate
+                <span className="ml-2 inline-flex items-center justify-center rounded-full bg-indigo-500 px-2 py-0.5 text-xs font-semibold text-white">
+                  {filteredUnmatchedGateTransactions.length}
+                </span>
+              </TabsTrigger>
+              <TabsTrigger value="all-p2p">
+                Все P2P транзакции
+                <span className="ml-2 inline-flex items-center justify-center rounded-full bg-indigo-500 px-2 py-0.5 text-xs font-semibold text-white">
+                  {filteredAllP2PTransactions.length}
+                </span>
+              </TabsTrigger>
+              <TabsTrigger value="all-gate">
+                Все IDEX транзакции
+                <span className="ml-2 inline-flex items-center justify-center rounded-full bg-indigo-500 px-2 py-0.5 text-xs font-semibold text-white">
+                  {filteredAllGateTransactions.length}
+                </span>
+              </TabsTrigger>
+            </TabsList>
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                placeholder="Поиск..."
+                className="border border-gray-300 rounded px-2 py-1"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+              <button
+                onClick={handleExport}
+                className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition duration-300"
+              >
+                Экспорт .xls
+              </button>
+            </div>
+          </div>
 
           {/* Метченные транзакции */}
           <TabsContent value="matched">
@@ -248,23 +432,32 @@ export function EmployeeDetailsDialog({
                     <TableHead>Дата (P2P/IDEX)</TableHead>
                     <TableHead>Телефон (P2P)</TableHead>
                     <TableHead>ID IDEX</TableHead>
-                    <TableHead>Сумма рублевая (P2P/IDEX)</TableHead>
+                    <TableHead>Сумма рублевая (P2P / IDEX)</TableHead>
                     <TableHead>Сумма P2P</TableHead>
                     <TableHead>Сумма Gate</TableHead>
                     <TableHead>Прибыль</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {sortedMatchedTransactions.map((tx: any, index: number) => (
+                  {filteredMatchedTransactions.map((tx: any, index: number) => (
                     <TableRow key={tx.id || `matched-${index}`}>
                       <TableCell>
-                        {tx.P2PTransaction?.completedAt
-                          ? format(new Date(tx.P2PTransaction.completedAt), "dd.MM.yyyy HH:mm")
-                          : "N/A"}{" "}
-                        /{" "}
-                        {tx.GateTransaction?.approvedAt
-                          ? format(new Date(tx.GateTransaction.approvedAt), "dd.MM.yyyy HH:mm")
-                          : "N/A"}
+                        <div className="flex flex-col gap-1">
+                          <div>
+                            {tx.P2PTransaction?.completedAt ? (
+                              <FormattedDateTime date={tx.P2PTransaction.completedAt} />
+                            ) : (
+                              "N/A"
+                            )}
+                          </div>
+                          <div>
+                            {tx.GateTransaction?.approvedAt ? (
+                              <FormattedDateTime date={tx.GateTransaction.approvedAt} />
+                            ) : (
+                              "N/A"
+                            )}
+                          </div>
+                        </div>
                       </TableCell>
                       <TableCell>
                         {tx.P2PTransaction?.currentTgPhone ? (
@@ -287,7 +480,11 @@ export function EmployeeDetailsDialog({
                         )}
                       </TableCell>
                       <TableCell>
-                        {(tx.P2PTransaction?.totalRub ?? 0).toFixed(2)}/{(tx.GateTransaction?.amountRub ?? 0).toFixed(2)} RUB
+                        <div className="flex items-center">
+                          <span>{(tx.P2PTransaction?.totalRub ?? 0).toFixed(2)} RUB</span>
+                          <span className="mx-2 border-l border-gray-300 h-4" />
+                          <span>{(tx.GateTransaction?.amountRub ?? 0).toFixed(2)} RUB</span>
+                        </div>
                       </TableCell>
                       <TableCell>
                         {(tx.P2PTransaction?.amount * commission ?? 0).toFixed(2)} USDT
@@ -322,9 +519,11 @@ export function EmployeeDetailsDialog({
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {sortedUnmatchedP2PTransactions.map((tx: any, index: number) => (
+                  {filteredUnmatchedP2PTransactions.map((tx: any, index: number) => (
                     <TableRow key={tx.id || `unmatched-p2p-${index}`}>
-                      <TableCell>{format(getP2PTxDate(tx), "dd.MM.yyyy HH:mm")}</TableCell>
+                      <TableCell>
+                        <FormattedDateTime date={getP2PTxDate(tx)} />
+                      </TableCell>
                       <TableCell>
                         {tx.currentTgPhone ? (
                           <div className="flex items-center">
@@ -360,9 +559,11 @@ export function EmployeeDetailsDialog({
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {sortedUnmatchedGateTransactions.map((tx: any, index: number) => (
+                  {filteredUnmatchedGateTransactions.map((tx: any, index: number) => (
                     <TableRow key={tx.id || `unmatched-gate-${index}`}>
-                      <TableCell>{format(getGateTxDate(tx), "dd.MM.yyyy HH:mm")}</TableCell>
+                      <TableCell>
+                        <FormattedDateTime date={getGateTxDate(tx)} />
+                      </TableCell>
                       <TableCell>{tx.transactionId ?? "N/A"}</TableCell>
                       <TableCell>
                         {tx.idexId ? (
@@ -398,12 +599,10 @@ export function EmployeeDetailsDialog({
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {sortedAllP2PTransactions.map((tx: any, index: number) => (
+                  {filteredAllP2PTransactions.map((tx: any, index: number) => (
                     <TableRow key={tx.id || `all-p2p-${index}`}>
                       <TableCell>
-                        {tx.completedAt
-                          ? format(new Date(tx.completedAt), "dd.MM.yyyy HH:mm")
-                          : format(new Date(tx.createdAt), "dd.MM.yyyy HH:mm")}
+                        <FormattedDateTime date={tx.completedAt ? tx.completedAt : tx.createdAt} />
                       </TableCell>
                       <TableCell>
                         {tx.currentTgPhone ? (
@@ -450,12 +649,10 @@ export function EmployeeDetailsDialog({
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {sortedAllGateTransactions.map((tx: any, index: number) => (
+                  {filteredAllGateTransactions.map((tx: any, index: number) => (
                     <TableRow key={tx.id || `all-gate-${index}`}>
                       <TableCell>
-                        {tx.approvedAt
-                          ? format(new Date(tx.approvedAt), "dd.MM.yyyy HH:mm")
-                          : format(new Date(tx.createdAt), "dd.MM.yyyy HH:mm")}
+                        <FormattedDateTime date={tx.approvedAt ? tx.approvedAt : tx.createdAt} />
                       </TableCell>
                       <TableCell>
                         {tx.idexId ? (
