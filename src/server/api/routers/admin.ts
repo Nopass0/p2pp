@@ -302,12 +302,18 @@ export const adminRouter = createTRPCRouter({
                     amount: true,
                     currentTgPhone: true,
                     completedAt: true,
+                    totalRub: true,
                   },
                 },
                 GateTransaction: {
                   select: {
                     id: true,
                     totalUsdt: true,
+                    amountRub: true,
+                    amountUsdt: true,
+                    totalRub: true,
+                    traderId: true,
+                    transactionId: true,
                     idexId: true,
                     approvedAt: true,
                   },
