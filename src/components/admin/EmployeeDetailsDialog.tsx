@@ -569,7 +569,7 @@ export function EmployeeDetailsDialog({
                         )}
                       </TableCell>
                       <TableCell>{(tx.totalUsdt ?? 0).toFixed(2)} USDT</TableCell>
-                      <TableCell>{(tx.totalRub ?? 0).toFixed(2)} RUB</TableCell>
+                      <TableCell>{(tx.amountRub ?? 0).toFixed(2)} RUB</TableCell>
                       <TableCell>{tx.status ?? "N/A"}</TableCell>
                     </TableRow>
                   ))}
@@ -638,6 +638,7 @@ export function EmployeeDetailsDialog({
                     <TableHead>Дата</TableHead>
                     <TableHead>ID IDEX</TableHead>
                     <TableHead>Сумма</TableHead>
+                    <TableHead>Сумма рублевая</TableHead>
                     <TableHead>Статус</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -658,6 +659,7 @@ export function EmployeeDetailsDialog({
                         )}
                       </TableCell>
                       <TableCell>{(tx.totalUsdt ?? 0).toFixed(2)} USDT</TableCell>
+                      <TableCell>{(tx.amountRub ?? 0).toFixed(2)} RUB</TableCell>
                       <TableCell>
                         {(employee.matchTransactions || []).some((match: any) => match.gateTxId === tx.id)
                           ? (
