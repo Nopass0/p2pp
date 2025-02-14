@@ -139,8 +139,8 @@ export function EmployeeDetailsDialog({
 
   const unmatchedP2PTransactions = (employee.P2PTransaction || []).filter((tx: any) =>
     !(employee.matchTransactions || []).some((match: any) => match.p2pTxId === tx.id) &&
-    new Date(tx.createdAt) >= fromDate &&
-    new Date(tx.createdAt) <= toDate
+    new Date(tx.completedAt) >= fromDate &&
+    new Date(tx.completedAt) <= toDate
   )
 
   const unmatchedGateTransactions = (employee.gateTransactions || []).filter((tx: any) =>
