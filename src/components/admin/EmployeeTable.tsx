@@ -419,7 +419,7 @@ export function EmployeeTable({ limit = 10, search = "" }: EmployeeTableProps) {
               <TableHead>ФИО</TableHead>
               <TableHead>Логин</TableHead>
               <TableHead>ЗП Коэф.</TableHead>
-              <TableHead>Заказы</TableHead>
+              <TableHead>Заказы (P2P/IDEX/Match)</TableHead>
               <TableHead>Время работы</TableHead>
               <TableHead>Валовая прибыль</TableHead>
               <TableHead>ЗП</TableHead>
