@@ -1958,6 +1958,142 @@ export const adminRouter = createTRPCRouter({
       });
     }),
 
+  updateExpense: adminProcedure
+    .input(
+      z.object({
+        id: z.number(),
+        amount: z.number(),
+        type: z.enum(["SCAM", "ERROR"]),
+        currency: z.enum(["USDT", "RUB"]),
+        date: z.string(),
+        description: z.string().optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      return await ctx.db.expense.update({
+        where: { id: input.id },
+        data: {
+          amount: input.amount,
+          type: input.type,
+          currency: input.currency,
+          date: new Date(input.date),
+          description: input.description,
+          updatedAt: new Date(),
+        },
+      });
+    }),
+
+  deleteExpense: adminProcedure
+    .input(
+      z.object({
+        id: z.number(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      return await ctx.db.expense.delete({
+        where: { id: input.id },
+      });
+    }),
+  getProfitSummary: adminProcedure
+    .input(dateRangeSchema)
+    .query(async ({ ctx, input }) => {
+      const expenses = await ctx.db.expense.findMany({
+        where: {
+          date: {
+            gte: input.from,
+            lte: input.to,
+          },
+        },
+      });
+
+      const revenue = await calculateTotalRevenue(new Date(input.from), new Date(input.to));
+
+      return {
+        expenses: {
+          USDT: expenses
+            .filter(e => e.currency === "USDT")
+            .reduce((acc, curr) => acc + curr.amount, 0),
+          RUB: expenses
+            .filter(e => e.currency === "RUB")
+            .reduce((acc, curr) => acc + curr.amount, 0),
+        },
+        revenue: {
+          USDT: revenue,
+          RUB: revenue * 90, // примерный курс, можно добавить API для получения актуального
+        },
+      };
+    }),
+
+  getExpenses: adminProcedure
+    .input(dateRangeSchema)
+    .query(async ({ ctx, input }) => {
+      return await ctx.db.expense.findMany({
+        where: {
+          date: {
+            gte: new Date(input.from),
+            lte: new Date(input.to),
+          },
+        },
+        orderBy: {
+          date: 'desc',
+        },
+      });
+    }),
+
+  addExpense: adminProcedure
+    .input(z.object({
+      amount: z.number(),
+      type: z.enum(["SCAM", "ERROR"]),
+      currency: z.enum(["USDT", "RUB"]),
+      date: z.string(),
+      description: z.string().optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      return await ctx.db.expense.create({
+        data: {
+          amount: input.amount,
+          type: input.type,
+          currency: input.currency,
+          date: new Date(input.date),
+          description: input.description,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+      });
+    }),
+
+  updateExpense: adminProcedure
+    .input(z.object({
+      id: z.number(),
+      amount: z.number(),
+      type: z.enum(["SCAM", "ERROR"]),
+      currency: z.enum(["USDT", "RUB"]),
+      date: z.string(),
+      description: z.string().optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      return await ctx.db.expense.update({
+        where: { id: input.id },
+        data: {
+          amount: input.amount,
+          type: input.type,
+          currency: input.currency,
+          date: new Date(input.date),
+          description: input.description,
+          updatedAt: new Date(),
+        },
+      });
+    }),
+
+  deleteExpense: adminProcedure
+    .input(z.object({
+      id: z.number(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      return await ctx.db.expense.delete({
+        where: { id: input.id },
+      });
+    }),
 });
 
 // Helper functions
