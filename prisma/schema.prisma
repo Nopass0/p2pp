@@ -154,6 +154,22 @@ model GateCookie {
   @@unique([userId, cookie])
 }
 
+model Income {
+  id          Int      @id @default(autoincrement())
+  amount      Float
+  type        String   // "SCAM" | "ERROR" | "Другое"
+  currency    String   // "USDT" или "RUB"
+  date        DateTime
+  description String?
+  isRecurring Boolean  @default(false)
+  period      String?  // период повторения, например, в днях
+  profit      Float?   // дополнительное поле для прибыли
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+
+
 model GateTransaction {
   id                   Int                    @id @default(autoincrement())
   userId               Int
@@ -203,15 +219,17 @@ model CustomMetric {
 model Expense {
   id          Int      @id @default(autoincrement())
   amount      Float
-  type        String   // "SCAM" | "ERROR"
-  currency    String   // "USDT" | "RUB"
+  type        String   // "SCAM" | "ERROR" | "Другое"
+  currency    String   // "USDT" или "RUB"
   date        DateTime
   description String?
+  isIncome    Boolean  @default(false) // false = расход, true = доход
+  isRecurring Boolean  @default(false)
+  period      String?  // период повторения (в днях)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-
-  @@index([date])
 }
+
 
 model TelegramTransaction {
   id                        Int      @id @default(autoincrement())

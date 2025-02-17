@@ -2094,6 +2094,138 @@ export const adminRouter = createTRPCRouter({
         where: { id: input.id },
       });
     }),
+
+  // Новая процедура для добавления дохода
+addIncome: adminProcedure
+.input(
+  z.object({
+    amount: z.number(),
+    type: z.enum(["SCAM", "ERROR", "Другое"]),
+    currency: z.enum(["USDT", "RUB"]),
+    date: z.string(),
+    description: z.string().optional(),
+    isRecurring: z.boolean().optional().default(false),
+    period: z.string().optional(), // период повторения (в днях)
+    profit: z.number().optional(),  // можно указать вручную прибыль по этой записи
+  })
+)
+.mutation(async ({ ctx, input }) => {
+  return await ctx.db.income.create({
+    data: {
+      amount: input.amount,
+      type: input.type,
+      currency: input.currency,
+      date: new Date(input.date),
+      description: input.description,
+      isRecurring: input.isRecurring,
+      period: input.period,
+      profit: input.profit,
+    },
+  });
+}),
+
+// Обновление записи дохода
+updateIncome: adminProcedure
+.input(
+  z.object({
+    id: z.number(),
+    amount: z.number(),
+    type: z.enum(["SCAM", "ERROR", "Другое"]),
+    currency: z.enum(["USDT", "RUB"]),
+    date: z.string(),
+    description: z.string().optional(),
+    isRecurring: z.boolean().optional(),
+    period: z.string().optional(),
+    profit: z.number().optional(),
+  })
+)
+.mutation(async ({ ctx, input }) => {
+  return await ctx.db.income.update({
+    where: { id: input.id },
+    data: {
+      amount: input.amount,
+      type: input.type,
+      currency: input.currency,
+      date: new Date(input.date),
+      description: input.description,
+      isRecurring: input.isRecurring,
+      period: input.period,
+      profit: input.profit,
+    },
+  });
+}),
+
+// Удаление записи дохода
+deleteIncome: adminProcedure
+.input(z.object({ id: z.number() }))
+.mutation(async ({ ctx, input }) => {
+  return await ctx.db.income.delete({
+    where: { id: input.id },
+  });
+}),
+
+// Получение списка записей дохода за указанный период
+getIncomes: adminProcedure
+.input(dateRangeSchema)
+.query(async ({ ctx, input }) => {
+  return await ctx.db.income.findMany({
+    where: {
+      date: {
+        gte: input.from,
+        lte: input.to,
+      },
+    },
+    orderBy: { date: "desc" },
+  });
+}),
+
+// Получение сводной информации по ручным записям
+getFinancialSummaryManual: adminProcedure
+.input(dateRangeSchema)
+.query(async ({ ctx, input }) => {
+  const expenses = await ctx.db.expense.findMany({
+    where: {
+      date: { gte: input.from, lte: input.to },
+    },
+  });
+// Получение доходов:
+const incomes = await ctx.db.expense.findMany({
+  where: {
+    date: { gte: input.from, lte: input.to },
+    isIncome: true,
+  },
+  orderBy: { date: "desc" },
+});
+
+
+  const totalExpensesUSDT = expenses
+    .filter(e => e.currency === "USDT")
+    .reduce((acc, curr) => acc + curr.amount, 0);
+  const totalExpensesRUB = expenses
+    .filter(e => e.currency === "RUB")
+    .reduce((acc, curr) => acc + curr.amount, 0);
+  const totalIncomeUSDT = incomes
+    .filter(i => i.currency === "USDT")
+    .reduce((acc, curr) => acc + curr.amount, 0);
+  const totalIncomeRUB = incomes
+    .filter(i => i.currency === "RUB")
+    .reduce((acc, curr) => acc + curr.amount, 0);
+  return {
+    expenses: {
+      USDT: totalExpensesUSDT,
+      RUB: totalExpensesRUB,
+    },
+    incomes: {
+      USDT: totalIncomeUSDT,
+      RUB: totalIncomeRUB,
+    },
+    profit: {
+      USDT: totalIncomeUSDT - totalExpensesUSDT,
+      RUB: totalIncomeRUB - totalExpensesRUB,
+    },
+  };
+}),
+
 });
 
 // Helper functions

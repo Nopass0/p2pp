@@ -107,7 +107,7 @@ const adminMenuItems = [
   //   path: "/dashboard/admin/settings",
   // },
   {
-    title: "Расчет прибыли",
+    title: "Финансовые записи",
     icon: PieChart,
     path: "/dashboard/admin/profit",
   },
