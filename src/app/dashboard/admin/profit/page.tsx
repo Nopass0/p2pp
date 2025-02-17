@@ -35,6 +35,7 @@ import { MoreVertical, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/trpc/react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Tooltip } from "@/components/ui/tooltip";
 
 // ===== DateRangePickerPopover =====
 
@@ -113,6 +114,7 @@ interface RecordType {
   isRecurring?: boolean;
   period?: string; // период повторения в днях
   profit?: number; // для дохода
+  processed?: boolean;
 }
 
 interface ExpandedRecord extends RecordType {
@@ -178,6 +180,10 @@ const FinancialRecordsPage = () => {
 
   const [expensesPage, setExpensesPage] = useState(1);
   const [incomesPage, setIncomesPage] = useState(1);
+
+  const [searchTerm, setSearchTerm] = React.useState("");
+  const [incomesSearchTerm, setIncomesSearchTerm] = React.useState("");
+  const [expenseTypeFilter, setExpenseTypeFilter] = React.useState<string>("all");
 
   // Получаем данные с сервера через tRPC (предполагается, что API возвращает массив записей)
   const { data: expensesData, refetch: refetchExpenses } = api.admin.getExpenses.useQuery({
@@ -263,6 +269,57 @@ const FinancialRecordsPage = () => {
       toast.success("Доход удалён");
     },
   });
+
+  const toggleExpenseMutation = api.admin.toggleExpenseProcessed.useMutation();
+  const statusIndicatorStyle = (processed: boolean) => ({
+    width: '12px',
+    height: '12px',
+    borderRadius: '50%',
+    backgroundColor: processed ? '#22c55e' : '#ef4444',
+    display: 'inline-block',
+    transition: 'all 0.2s ease-in-out',
+    cursor: 'pointer',
+    boxShadow: processed 
+      ? '0 0 6px rgba(34, 197, 94, 0.6)' 
+      : '0 0 6px rgba(239, 68, 68, 0.6)',
+    border: '2px solid ' + (processed ? '#16a34a' : '#dc2626'),
+  });
+
+  const toggleProcessed = async (recordId: number, newStatus: boolean) => {
+    try {
+      const result = await toggleExpenseMutation.mutateAsync({ 
+        id: recordId, 
+        processed: newStatus 
+      });
+      
+      // Оптимистичное обновление UI для расходов
+      const updatedExpenses = expensesData.map(expense => {
+        if (expense.id === recordId) {
+          return { ...expense, processed: newStatus };
+        }
+        return expense;
+      });
+      setExpenses(updatedExpenses);
+      
+      if (result.success) {
+        // Обновляем данные с сервера для синхронизации
+        void refetchExpenses();
+      }
+    } catch (error: any) {
+      console.error("Ошибка переключения состояния:", error);
+      // Откатываем оптимистичное обновление в случае ошибки
+      void refetchExpenses();
+      if (error.message) {
+        toast({
+          title: "Ошибка",
+          description: error.message,
+          status: "error",
+          duration: 3000,
+          isClosable: true,
+        });
+      }
+    }
+  };
 
   const handleAddRecord = () => {
     const amount = parseFloat(newRecord.amount);
@@ -371,24 +428,42 @@ const FinancialRecordsPage = () => {
     submitText: string;
     onChange: (newData: any) => void;
   }) => {
-    // Гарантируем, что значение даты корректно
-    const parsedDate = new Date(record.date);
+    // Use local state to manage form fields to avoid re-rendering parent on every change
+    const [formData, setFormData] = React.useState(record);
+
+    React.useEffect(() => {
+      setFormData(record);
+    }, [record]);
+
+    // Validate date
+    const parsedDate = new Date(formData.date);
     const validDate = isValid(parsedDate) ? parsedDate : new Date();
+
+    const handleInputChange = (field: string, value: any) => {
+      setFormData((prev: any) => ({ ...prev, [field]: value }));
+    };
+
+    // On blur, propagate the local state to parent
+    const handleBlur = () => {
+      onChange(formData);
+    };
+
     return (
       <div className="grid gap-4 py-4">
         <div className="grid gap-2">
           <Label>Сумма</Label>
           <Input
             type="number"
-            value={record.amount}
-            onChange={(e) => onChange({ ...record, amount: e.target.value })}
+            value={formData.amount}
+            onChange={(e) => handleInputChange("amount", e.target.value)}
+            onBlur={handleBlur}
           />
         </div>
         <div className="grid gap-2">
           <Label>Валюта</Label>
           <Select
-            value={record.currency}
-            onValueChange={(value: "USDT" | "RUB") => onChange({ ...record, currency: value })}
+            value={formData.currency}
+            onValueChange={(value: "USDT" | "RUB") => handleInputChange("currency", value)}
           >
             <SelectTrigger>
               <SelectValue />
@@ -402,8 +477,8 @@ const FinancialRecordsPage = () => {
         <div className="grid gap-2">
           <Label>Тип</Label>
           <Select
-            value={record.type}
-            onValueChange={(value: "SCAM" | "ERROR" | "Другое") => onChange({ ...record, type: value })}
+            value={formData.type}
+            onValueChange={(value: "SCAM" | "ERROR" | "Другое") => handleInputChange("type", value)}
           >
             <SelectTrigger>
               <SelectValue />
@@ -419,14 +494,15 @@ const FinancialRecordsPage = () => {
           <Label>Дата и время</Label>
           <DateTimePicker
             value={validDate}
-            onChange={(newDate: Date) => onChange({ ...record, date: newDate.toISOString() })}
+            onChange={(date) => handleInputChange("date", date.toString())}
           />
         </div>
         <div className="grid gap-2">
           <Label>Описание</Label>
           <Input
-            value={record.description}
-            onChange={(e) => onChange({ ...record, description: e.target.value })}
+            value={formData.description}
+            onChange={(e) => handleInputChange("description", e.target.value)}
+            onBlur={handleBlur}
           />
         </div>
         {recordCategory === "income" && (
@@ -434,16 +510,17 @@ const FinancialRecordsPage = () => {
             <Label>Прибыль</Label>
             <Input
               type="number"
-              value={record.profit}
-              onChange={(e) => onChange({ ...record, profit: e.target.value })}
+              value={formData.profit}
+              onChange={(e) => handleInputChange("profit", e.target.value)}
+              onBlur={handleBlur}
             />
           </div>
         )}
         <div className="grid gap-2">
           <Label>Повторяющаяся запись?</Label>
           <Select
-            value={record.isRecurring ? "true" : "false"}
-            onValueChange={(value: string) => onChange({ ...record, isRecurring: value === "true" })}
+            value={formData.isRecurring ? "true" : "false"}
+            onValueChange={(value: string) => handleInputChange("isRecurring", value === "true")}
           >
             <SelectTrigger>
               <SelectValue />
@@ -454,13 +531,14 @@ const FinancialRecordsPage = () => {
             </SelectContent>
           </Select>
         </div>
-        {(record.isRecurring || record.period) && (
+        {(formData.isRecurring || formData.period) && (
           <div className="grid gap-2">
             <Label>Период (в днях)</Label>
             <Input
               type="number"
-              value={record.period}
-              onChange={(e) => onChange({ ...record, period: e.target.value })}
+              value={formData.period}
+              onChange={(e) => handleInputChange("period", e.target.value)}
+              onBlur={handleBlur}
             />
           </div>
         )}
@@ -538,6 +616,28 @@ const FinancialRecordsPage = () => {
               <CardTitle>Расходы</CardTitle>
             </CardHeader>
             <CardContent>
+              <div className="flex gap-4 mb-4 items-center">
+                <Input
+                  placeholder="Поиск по всем столбцам..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="max-w-xs"
+                />
+                <Select
+                  value={expenseTypeFilter}
+                  onValueChange={(value: string) => setExpenseTypeFilter(value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Фильтр по типу" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Все расходы</SelectItem>
+                    <SelectItem value="processed">Обработанные</SelectItem>
+                    <SelectItem value="unprocessed">Не обработанные</SelectItem>
+                    <SelectItem value="returned">Возвратные</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
               <ScrollArea className="h-80" ref={expensesScrollRef} onScroll={handleExpensesScroll}>
                 <Table>
                   <TableHeader>
@@ -547,11 +647,29 @@ const FinancialRecordsPage = () => {
                       <TableHead>Сумма</TableHead>
                       <TableHead>Валюта</TableHead>
                       <TableHead>Описание</TableHead>
+                      <TableHead>Обработано</TableHead>
                       <TableHead className="w-12"></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {displayedExpenses.map((record) => {
+                    {displayedExpenses.filter(record => {
+                      const searchLower = searchTerm.toLowerCase();
+                      const matchesSearch =
+                        record.amount.toString().toLowerCase().includes(searchLower) ||
+                        (record.description && record.description.toLowerCase().includes(searchLower)) ||
+                        record.type.toLowerCase().includes(searchLower);
+
+                      let matchesType = true;
+                      if (expenseTypeFilter === "processed") {
+                        matchesType = record.processed === true;
+                      } else if (expenseTypeFilter === "unprocessed") {
+                        matchesType = record.processed === false;
+                      } else if (expenseTypeFilter === "returned") {
+                        matchesType = record.returned === true;
+                      }
+
+                      return matchesSearch && matchesType;
+                    }).map(record => {
                       const occDate = new Date(record.occurrenceDate);
                       if (!isValid(occDate)) return null;
                       const isFuture = occDate > new Date();
@@ -562,6 +680,18 @@ const FinancialRecordsPage = () => {
                           <TableCell>{record.amount.toFixed(2)}</TableCell>
                           <TableCell>{record.currency}</TableCell>
                           <TableCell>{record.description}</TableCell>
+                          <TableCell className="text-center">
+                            <Tooltip
+                              label={record.processed ? "Обработано" : "Не обработано"}
+                              placement="top"
+                            >
+                              <div
+                                style={statusIndicatorStyle(record.processed)}
+                                onClick={() => toggleProcessed(record.id, !record.processed)}
+                                className="mx-auto hover:scale-110 transition-transform"
+                              />
+                            </Tooltip>
+                          </TableCell>
                           <TableCell>
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
@@ -597,6 +727,14 @@ const FinancialRecordsPage = () => {
               <CardTitle>Доходы</CardTitle>
             </CardHeader>
             <CardContent>
+              <div className="flex gap-4 mb-4 items-center">
+                <Input
+                  placeholder="Поиск по доходам..."
+                  value={incomesSearchTerm}
+                  onChange={(e) => setIncomesSearchTerm(e.target.value)}
+                  className="max-w-xs"
+                />
+              </div>
               <ScrollArea className="h-80" ref={incomesScrollRef} onScroll={handleIncomesScroll}>
                 <Table>
                   <TableHeader>
@@ -611,7 +749,14 @@ const FinancialRecordsPage = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {displayedIncomes.map((record) => {
+                    {displayedIncomes.filter(record => {
+                      const searchLower = incomesSearchTerm.toLowerCase();
+                      return (
+                        record.amount.toString().toLowerCase().includes(searchLower) ||
+                        (record.description && record.description.toLowerCase().includes(searchLower)) ||
+                        record.type.toLowerCase().includes(searchLower)
+                      );
+                    }).map(record => {
                       const recDate = new Date(record.date);
                       if (!isValid(recDate)) return null;
                       const isFuture = recDate > new Date();
@@ -656,7 +801,7 @@ const FinancialRecordsPage = () => {
 
         {/* Диалог для добавления записи */}
         <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-          <DialogContent>
+          <DialogContent autoFocus={false}>
             <DialogHeader>
               <DialogTitle>Добавить {recordCategory === "expense" ? "расход" : "доход"}</DialogTitle>
             </DialogHeader>
@@ -680,7 +825,7 @@ const FinancialRecordsPage = () => {
             }
           }}
         >
-          <DialogContent>
+          <DialogContent autoFocus={false}>
             <DialogHeader>
               <DialogTitle>Редактировать запись</DialogTitle>
             </DialogHeader>
@@ -694,6 +839,13 @@ const FinancialRecordsPage = () => {
             )}
           </DialogContent>
         </Dialog>
+
+        {/* Обновление KPI */}
+        <div className="mt-4">
+          <div>Всего расходов: {expandedExpenses.length}</div>
+          <div>Обработанных расходов: {expandedExpenses.filter(r => r.processed).length}</div>
+          <div>Возвратных расходов: {expandedExpenses.filter(r => r.returned).length}</div>
+        </div>
       </div>
     </ScrollArea>
   );

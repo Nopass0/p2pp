@@ -2226,6 +2226,44 @@ const incomes = await ctx.db.expense.findMany({
   };
 }),
 
+  toggleExpenseProcessed: protectedProcedure
+    .input(z.object({
+      id: z.number(),
+      processed: z.boolean(),
+    }))
+    .mutation(async ({ input }) => {
+      try {
+        // Проверяем существование записи
+        const existingRecord = await db.expense.findUnique({
+          where: { id: input.id },
+        });
+
+        if (!existingRecord) {
+          throw new TRPCError({
+            code: 'NOT_FOUND',
+            message: `Expense record with id ${input.id} not found`,
+          });
+        }
+
+        // Если запись существует, обновляем её
+        const updated = await db.expense.update({
+          where: { id: input.id },
+          data: { processed: input.processed },
+        });
+
+        return { success: true, data: updated };
+      } catch (error) {
+        if (error instanceof TRPCError) {
+          throw error;
+        }
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Failed to update expense record',
+          cause: error,
+        });
+      }
+    }),
+
 });
 
 // Helper functions

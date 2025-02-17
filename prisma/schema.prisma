@@ -166,9 +166,11 @@ model Income {
   profit      Float?   // дополнительное поле для прибыли
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  processed   Boolean  @default(false)
+  returned    Boolean  @default(false)
+
+  @@index([type])
 }
-
-
 
 model GateTransaction {
   id                   Int                    @id @default(autoincrement())
@@ -228,8 +230,10 @@ model Expense {
   period      String?  // период повторения (в днях)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-}
+  processed   Boolean  @default(false)
 
+  @@index([type])
+}
 
 model TelegramTransaction {
   id                        Int      @id @default(autoincrement())
