@@ -328,10 +328,10 @@ const FinancialRecordsPage = () => {
         amount,
         type: newRecord.type,
         currency: newRecord.currency,
-        date: newRecord.date,
-        description: newRecord.description,
+        date: new Date(newRecord.date).toISOString(),
+        description: newRecord.description || "",
         isRecurring: newRecord.isRecurring,
-        period: newRecord.period,
+        period: newRecord.period || "",
       });
     } else {
       const profit = newRecord.profit ? parseFloat(newRecord.profit) : undefined;
@@ -339,10 +339,10 @@ const FinancialRecordsPage = () => {
         amount,
         type: newRecord.type,
         currency: newRecord.currency,
-        date: newRecord.date,
-        description: newRecord.description,
+        date: new Date(newRecord.date).toISOString(),
+        description: newRecord.description || "",
         isRecurring: newRecord.isRecurring,
-        period: newRecord.period,
+        period: newRecord.period || "",
         profit,
       });
     }

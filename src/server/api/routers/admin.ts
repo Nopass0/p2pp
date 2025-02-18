@@ -70,11 +70,13 @@ const getEmployeesInput = z.object({
 });
 
 const addExpenseInput = z.object({
-  employeeId: z.number(),
   amount: z.number(),
-  type: z.enum(["SCAM", "ERROR"]),
+  type: z.enum(["SCAM", "ERROR", "Другое"]),
   description: z.string(),
-  currency: z.enum(["USDT"]).default("USDT")
+  currency: z.enum(["USDT", "RUB"]),
+  date: z.string(),
+  isRecurring: z.boolean(),
+  period: z.string().optional(),
 });
 
 const getAggregatedStatsInput = z.object({
@@ -1483,19 +1485,30 @@ export const adminRouter = createTRPCRouter({
     }),
 
 
-  addExpense: adminProcedure
+  addExpense: protectedProcedure
     .input(addExpenseInput)
     .mutation(async ({ ctx, input }) => {
-      return await ctx.db.employeeExpense.create({
-        data: {
-          userId: input.employeeId,
-          amount: input.amount,
-          type: input.type,
-          description: input.description,
-          currency: input.currency,
-          date: new Date()
-        }
-      });
+      try {
+        const expense = await ctx.db.expense.create({
+          data: {
+            amount: input.amount,
+            type: input.type,
+            description: input.description,
+            currency: input.currency,
+            date: new Date(input.date),
+            isRecurring: input.isRecurring,
+            period: input.period,
+            isIncome: false,
+          },
+        });
+        return expense;
+      } catch (error) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to add expense",
+          cause: error,
+        });
+      }
     }),
 
   getEmployeeComments: adminProcedure
