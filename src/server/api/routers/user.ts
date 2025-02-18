@@ -295,18 +295,7 @@ export const userRouter = createTRPCRouter({
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
 
-    // Get today's transactions
-    const matchTransactions = await ctx.db.transactionMatch.count({
-      where: {
-        userId: ctx.user.id,
-        createdAt: {
-          gte: today,
-          lt: tomorrow,
-        },
-      },
-    });
-
-    // Get gate transactions
+    // Get all transactions for today
     const gateTransactions = await ctx.db.gateTransaction.findMany({
       where: {
         userId: ctx.user.id,
@@ -317,7 +306,6 @@ export const userRouter = createTRPCRouter({
       },
     });
 
-    // Get p2p transactions
     const p2pTransactions = await ctx.db.p2PTransaction.findMany({
       where: {
         userId: ctx.user.id,
@@ -328,7 +316,17 @@ export const userRouter = createTRPCRouter({
       },
     });
 
-    // Calculate revenue using admin router logic
+    const matchTransactions = await ctx.db.transactionMatch.count({
+      where: {
+        userId: ctx.user.id,
+        createdAt: {
+          gte: today,
+          lt: tomorrow,
+        },
+      },
+    });
+
+    // Расчет выручки
     const gateFee = 0.009; // 0.9%
     const gateRevenue = gateTransactions.reduce(
       (sum, tx) => sum + tx.amountUsdt * gateFee,
@@ -340,21 +338,24 @@ export const userRouter = createTRPCRouter({
     );
     const totalRevenue = gateRevenue + p2pRevenue;
 
-    // Get employee's commission rate
+    // Получаем процент комиссии сотрудника
     const user = await ctx.db.user.findUnique({
       where: { id: ctx.user.id },
       select: { commissionRate: true },
     });
-    const commissionRate = user?.commissionRate ?? 0.5; // Default to 50%
+    const commissionRate = user?.commissionRate ?? 0.5; // По умолчанию 50%
 
-    // Calculate salary
+    // Расчет зарплаты
     const salary = totalRevenue * commissionRate;
 
     return {
       matchCount: matchTransactions,
-      p2pCount: p2pTransactions.lenght,
-      idexCount: gateTransactions.length,
+      gateRevenue,
+      p2pRevenue,
+      totalRevenue,
       salary,
+      commissionRate,
     };
   }),
+
 });
