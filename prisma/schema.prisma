@@ -482,3 +482,43 @@ model GateTransactionOwner {
 
   @@unique([userId, gateTransactionId])
 }
+
+enum SimCardStatus {
+  NEW
+  VERIFIED
+  WORKING
+  BLOCKED
+  FROZEN_FUNDS
+}
+
+enum SimCardCategory {
+  TELEGRAM
+  BANK
+}
+
+model SimCard {
+  id            Int            @id @default(autoincrement())
+  phoneNumber   String         @unique
+  status        SimCardStatus  @default(NEW)
+  category      SimCardCategory
+  orderNumber   Int           @default(autoincrement())
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  bankCard      BankCard?
+
+  @@index([status])
+  @@index([category])
+}
+
+model BankCard {
+  id            Int      @id @default(autoincrement())
+  simCardId     Int      @unique
+  bankName      String
+  ownerName     String
+  balance       Float    @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  simCard       SimCard  @relation(fields: [simCardId], references: [id], onDelete: Cascade)
+
+  @@index([bankName])
+}

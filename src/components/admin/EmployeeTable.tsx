@@ -13,10 +13,21 @@ import {
 } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { CameraIcon, PencilIcon, ChevronLeftIcon, ChevronRightIcon, Trash } from "lucide-react"
+import {
+  CameraIcon,
+  PencilIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  Trash,
+} from "lucide-react"
 import Image from "next/image"
 import { cn, formatCurrency } from "@/lib/utils"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { Textarea } from "@/components/ui/textarea"
 import { format } from "date-fns"
 import {
@@ -25,35 +36,35 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
+} from "@/components/ui/select"
+import { Badge } from "@/components/ui/badge"
+import { ScrollArea } from "@/components/ui/scroll-area"
 import { DateTimePicker } from "@/components/ui/date-time-picker"
 import { EmployeeDetailsDialog } from "./EmployeeDetailsDialog"
 import { Card, CardHeader, CardTitle, CardContent } from "../ui/card"
 
-const ITEMS_PER_PAGE = 24;
+const ITEMS_PER_PAGE = 24
 
 interface Employee {
-  id: number;
-  login: string;
-  firstName: string | null;
-  lastName: string | null;
-  middleName: string | null;
-  deposit: number;
-  salaryPercentage: number;
-  gateTransactions: any[];
-  P2PTransaction: any[];
-  matchTransactionsCount?: number;
-  matchTransactions: any[];
-  grossProfit: number;
-  salary: number;
-  commentsCount?: number;
-  scamErrorsCount?: number;
-  errorsCount?: number;
-  employeeExpenses: any[];
-
-  workTimes: any[];
+  id: number
+  login: string
+  firstName: string | null
+  lastName: string | null
+  middleName: string | null
+  deposit: number
+  salaryPercentage: number
+  gateTransactions: any[]
+  P2PTransaction: any[]
+  matchTransactionsCount?: number
+  matchTransactions: any[]
+  grossProfit: number
+  salary: number
+  commentsCount?: number
+  scamErrorsCount?: number
+  errorsCount?: number
+  employeeExpenses: any[]
+  workTimes: any[]
+  passportPhoto?: string
 }
 
 interface EmployeeTableProps {
@@ -66,35 +77,37 @@ interface EmployeeTableProps {
 }
 
 export function EmployeeTable({ limit = 10, search = "" }: EmployeeTableProps) {
-  const router = useRouter();
-  const utils = api.useContext();
+  const router = useRouter()
+  const utils = api.useContext()
 
-  const [page, setPage] = useState(1);
-  const [searchState, setSearchState] = useState(search);
-  const [selectedCurrency, setSelectedCurrency] = useState<'USDT' | 'RUB'>('USDT');
-  const [showPhotoDialog, setShowPhotoDialog] = useState(false);
-  const [selectedEmployee, setSelectedEmployee] = useState<number | null>(null);
-  const [newPhotoUrl, setNewPhotoUrl] = useState("");
-  const [editingDeposit, setEditingDeposit] = useState<{ id: number; value: number } | null>(null);
-  const [editingSalary, setEditingSalary] = useState<{ id: number; value: number } | null>(null);
-  const [showExpensesDialog, setShowExpensesDialog] = useState(false);
-  const [showCommentsDialog, setShowCommentsDialog] = useState(false);
-  const [newComment, setNewComment] = useState("");
+  const [page, setPage] = useState(1)
+  const [searchState, setSearchState] = useState(search)
+  // Новый фильтр: "all" — все, "online" — в работе, "offline" — не в работе
+  const [statusFilter, setStatusFilter] = useState<"all" | "online" | "offline">("all")
+  const [selectedCurrency, setSelectedCurrency] = useState<'USDT' | 'RUB'>('USDT')
+  const [showPhotoDialog, setShowPhotoDialog] = useState(false)
+  const [selectedEmployee, setSelectedEmployee] = useState<number | null>(null)
+  const [newPhotoUrl, setNewPhotoUrl] = useState("")
+  const [editingDeposit, setEditingDeposit] = useState<{ id: number; value: number } | null>(null)
+  const [editingSalary, setEditingSalary] = useState<{ id: number; value: number } | null>(null)
+  const [showExpensesDialog, setShowExpensesDialog] = useState(false)
+  const [showCommentsDialog, setShowCommentsDialog] = useState(false)
+  const [newComment, setNewComment] = useState("")
   const [newExpense, setNewExpense] = useState({
     amount: 0,
     type: "SCAM",
     description: "",
     currency: "USDT"
-  });
-  const [showWorkTimeDialog, setShowWorkTimeDialog] = useState(false);
-  const [selectedWorkTime, setSelectedWorkTime] = useState<any>(null);
-  const [editingComment, setEditingComment] = useState<{ id: number; content: string } | null>(null);
-  const [editingExpense, setEditingExpense] = useState<any>(null);
-  const [showDetailsDialog, setShowDetailsDialog] = useState(false);
-  const [selectedEmployeeForDetails, setSelectedEmployeeForDetails] = useState<Employee | null>(null);
-  const [editingName, setEditingName] = useState<{ id: number; firstName: string; lastName: string } | null>(null);
-  const [employeeToDelete, setEmployeeToDelete] = useState<number | null>(null);
-  const [deleteError, setDeleteError] = useState<string | null>(null);
+  })
+  const [showWorkTimeDialog, setShowWorkTimeDialog] = useState(false)
+  const [selectedWorkTime, setSelectedWorkTime] = useState<any>(null)
+  const [editingComment, setEditingComment] = useState<{ id: number; content: string } | null>(null)
+  const [editingExpense, setEditingExpense] = useState<any>(null)
+  const [showDetailsDialog, setShowDetailsDialog] = useState(false)
+  const [selectedEmployeeForDetails, setSelectedEmployeeForDetails] = useState<Employee | null>(null)
+  const [editingName, setEditingName] = useState<{ id: number; firstName: string; lastName: string } | null>(null)
+  const [employeeToDelete, setEmployeeToDelete] = useState<number | null>(null)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
 
   const [fromDate, setFromDate] = useState<Date>(new Date(new Date().setHours(0, 0, 0, 0)))
   const [toDate, setToDate] = useState<Date>(new Date(new Date().setHours(23, 59, 59, 999)))
@@ -107,18 +120,15 @@ export function EmployeeTable({ limit = 10, search = "" }: EmployeeTableProps) {
     }
   }, {
     refetchOnWindowFocus: false
-  });
+  })
 
   // Create a default date range if none provided
   const effectiveDateRange = useMemo(() => {
-    const defaultFrom = new Date(0);
-    const defaultTo = new Date();
-    
     return {
       from: fromDate,
       to: toDate
-    };
-  }, [fromDate, toDate]);
+    }
+  }, [fromDate, toDate])
 
   const { data: employees, isLoading } = api.admin.getEmployees.useQuery(
     {
@@ -135,193 +145,207 @@ export function EmployeeTable({ limit = 10, search = "" }: EmployeeTableProps) {
     {
       keepPreviousData: true,
     }
-  );
+  )
 
+  // Фильтруем сотрудников по статусу (онлайн/оффлайн)
+  const filteredEmployees = useMemo(() => {
+    return employees?.filter((employee) => {
+      if (statusFilter === "online") {
+        // Онлайн: есть данные о работе и у последней записи отсутствует endTime
+        return employee.workTimes &&
+          employee.workTimes.length > 0 &&
+          !employee.workTimes[employee.workTimes.length - 1].endTime
+      } else if (statusFilter === "offline") {
+        // Оффлайн: либо нет данных, либо в последней записи присутствует endTime
+        return !employee.workTimes ||
+          employee.workTimes.length === 0 ||
+          employee.workTimes[employee.workTimes.length - 1].endTime
+      }
+      return true
+    }) || []
+  }, [employees, statusFilter])
+
+  // Остальные запросы и мутации остаются без изменений...
   const { data: workTimeData } = api.admin.getEmployeeWorkTime.useQuery(
     { userId: selectedEmployee || 0 },
     { enabled: !!selectedEmployee }
-  );
+  )
 
   const { data: comments, refetch: refetchComments } = api.admin.getEmployeeComments.useQuery(
     { userId: selectedEmployee ?? 0 },
     { enabled: !!selectedEmployee }
-  );
-
-
+  )
 
   const updateDeposit = api.admin.updateEmployeeDeposit.useMutation({
     onSuccess: () => {
-      utils.admin.getEmployees.invalidate();
-      setEditingDeposit(null);
+      utils.admin.getEmployees.invalidate()
+      setEditingDeposit(null)
     }
-  });
+  })
 
   const updateSalary = api.admin.updateEmployeeSalary.useMutation({
     onSuccess: () => {
-      utils.admin.getEmployees.invalidate();
-      setEditingSalary(null);
+      utils.admin.getEmployees.invalidate()
+      setEditingSalary(null)
     }
-  });
+  })
 
   useEffect(() => {
-    console.log(employees);
-  }, [employees]);
+    console.log(employees)
+  }, [employees])
 
   const updatePhoto = api.admin.updateEmployeePhoto.useMutation({
     onSuccess: () => {
-      utils.admin.getEmployees.invalidate();
-      setShowPhotoDialog(false);
-      setNewPhotoUrl("");
+      utils.admin.getEmployees.invalidate()
+      setShowPhotoDialog(false)
+      setNewPhotoUrl("")
     }
-  });
+  })
 
   const addComment = api.admin.addEmployeeComment.useMutation({
     onSuccess: () => {
-      refetchComments();
-      setNewComment("");
+      refetchComments()
+      setNewComment("")
     },
-  });
+  })
 
   const addExpense = api.admin.addExpense.useMutation({
     onSuccess: () => {
-      utils.admin.getEmployees.invalidate();
+      utils.admin.getEmployees.invalidate()
       setNewExpense({
         amount: 0,
         type: "SCAM",
         description: "",
         currency: "USDT"
-      });
-      setShowExpensesDialog(false);
+      })
+      setShowExpensesDialog(false)
     }
-  });
+  })
 
   const deleteExpense = api.admin.deleteExpense.useMutation({
     onSuccess: () => {
-      utils.admin.getEmployees.invalidate();
+      utils.admin.getEmployees.invalidate()
     }
-  });
+  })
 
   const editCommentMutation = api.admin.editComment.useMutation({
     onSuccess: () => {
-      utils.admin.getEmployeeComments.invalidate({ userId: selectedEmployee ?? 0 });
-      utils.admin.getEmployees.invalidate();
-      setEditingComment(null);
+      utils.admin.getEmployeeComments.invalidate({ userId: selectedEmployee ?? 0 })
+      utils.admin.getEmployees.invalidate()
+      setEditingComment(null)
     }
-  });
+  })
 
   const deleteCommentMutation = api.admin.deleteComment.useMutation({
     onSuccess: () => {
-      utils.admin.getEmployeeComments.invalidate({ userId: selectedEmployee ?? 0 });
-      utils.admin.getEmployees.invalidate();
+      utils.admin.getEmployeeComments.invalidate({ userId: selectedEmployee ?? 0 })
+      utils.admin.getEmployees.invalidate()
     }
-  });
+  })
 
   const updateNameMutation = api.admin.updateEmployeeName.useMutation({
     onSuccess: () => {
-      utils.admin.getEmployees.invalidate();
-      setEditingName(null);
+      utils.admin.getEmployees.invalidate()
+      setEditingName(null)
     }
-  });
+  })
 
   const deleteEmployeeMutation = api.admin.deleteEmployee.useMutation({
     onSuccess: () => {
-      utils.admin.getEmployees.invalidate();
-      setEmployeeToDelete(null);
-      setShowDetailsDialog(false);
-      setDeleteError(null);
+      utils.admin.getEmployees.invalidate()
+      setEmployeeToDelete(null)
+      setShowDetailsDialog(false)
+      setDeleteError(null)
     },
     onError: (error) => {
-      console.error("Error deleting employee:", error);
-      setDeleteError(error.message || "Не удалось удалить сотрудника. Пожалуйста, попробуйте снова.");
+      console.error("Error deleting employee:", error)
+      setDeleteError(error.message || "Не удалось удалить сотрудника. Пожалуйста, попробуйте снова.")
     }
-  });
+  })
 
   const formatWorkTime = (employee: any) => {
-    if (!employee.workTimes || employee.workTimes.length === 0) return "Нет данных";
-    const lastWorkTime = employee.workTimes[employee.workTimes.length - 1];
+    if (!employee.workTimes || employee.workTimes.length === 0) return "Нет данных"
+    const lastWorkTime = employee.workTimes[employee.workTimes.length - 1]
     if (!lastWorkTime.endTime) {
-      return `В работе с ${format(new Date(lastWorkTime.startTime), "HH:mm dd.MM")}`;
+      return `В работе с ${format(new Date(lastWorkTime.startTime), "HH:mm dd.MM")}`
     }
-    return `${format(new Date(lastWorkTime.startTime), "HH:mm")}-${format(new Date(lastWorkTime.endTime), "HH:mm")}`;
-  };
+    return `${format(new Date(lastWorkTime.startTime), "HH:mm")}-${format(new Date(lastWorkTime.endTime), "HH:mm")}`
+  }
 
+  // Другие вспомогательные функции остаются без изменений...
   const formatTransactions = (employee: any) => {
-    const p2pCount = Array.isArray(employee.P2PTransaction) ? employee.P2PTransaction.filter((tx: any) => tx.processed).length : 0;
-    const gateCount = Array.isArray(employee.gateTransactions) ? employee.gateTransactions.length : 0;
-    const matchCount = Array.isArray(employee.TransactionMatch) ? employee.TransactionMatch.length : 0;
-    return `${p2pCount}/${gateCount}/${matchCount}`;
-  };
+    const p2pCount = Array.isArray(employee.P2PTransaction) ? employee.P2PTransaction.filter((tx: any) => tx.processed).length : 0
+    const gateCount = Array.isArray(employee.gateTransactions) ? employee.gateTransactions.length : 0
+    const matchCount = Array.isArray(employee.TransactionMatch) ? employee.TransactionMatch.length : 0
+    return `${p2pCount}/${gateCount}/${matchCount}`
+  }
 
-  const formatCurrency = (value: number, currency: string) => {
+  const formatCurrencyValue = (value: number, currency: string) => {
     return new Intl.NumberFormat('ru-RU', {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
-    }).format(value);
-  };
+    }).format(value)
+  }
 
   const calculateGrossProfit = (employee: any) => {
     const matchedTransactions = (employee.matchTransactions || []).filter((tx: any) => {
-      const p2pDate = tx.P2PTransaction?.completedAt ? new Date(tx.P2PTransaction.completedAt) : null;
-      const gateDate = tx.GateTransaction?.approvedAt ? new Date(tx.GateTransaction.approvedAt) : null;
-      
+      const p2pDate = tx.P2PTransaction?.completedAt ? new Date(tx.P2PTransaction.completedAt) : null
+      const gateDate = tx.GateTransaction?.approvedAt ? new Date(tx.GateTransaction.approvedAt) : null
+
       return (p2pDate && p2pDate >= fromDate && p2pDate <= toDate) ||
-             (gateDate && gateDate >= fromDate && gateDate <= toDate);
-    });
+             (gateDate && gateDate >= fromDate && gateDate <= toDate)
+    })
 
-    const commission = 1.009;
+    const commission = 1.009
     const grossExpense = matchedTransactions.reduce((sum: number, tx: any) => 
-      sum + (tx.P2PTransaction?.amount ?? 0), 0) * commission;
-    
-    const grossIncome = matchedTransactions.reduce((sum: number, tx: any) => 
-      sum + (tx.GateTransaction?.totalUsdt ?? 0), 0);
+      sum + (tx.P2PTransaction?.amount ?? 0), 0) * commission
 
-    return grossIncome - grossExpense;
-  };
+    const grossIncome = matchedTransactions.reduce((sum: number, tx: any) => 
+      sum + (tx.GateTransaction?.totalUsdt ?? 0), 0)
+
+    return grossIncome - grossExpense
+  }
 
   const calculateSalary = (employee: any) => {
-    const grossProfit = calculateGrossProfit(employee);
-    return grossProfit * (Number(employee.salaryPercentage) || 0);
-  };
+    const grossProfit = calculateGrossProfit(employee)
+    return grossProfit * (Number(employee.salaryPercentage) || 0)
+  }
 
   const getLatestMatchDetails = (employee: any) => {
     if (!employee.matchTransactions || employee.matchTransactions.length === 0) {
-      return { phone: '-', idexId: '-' };
+      return { phone: '-', idexId: '-' }
     }
-
-    // Sort transactions by date and get the latest one
     const sortedTransactions = [...employee.matchTransactions].sort((a, b) => {
       const dateA = a.P2PTransaction?.completedAt ? new Date(a.P2PTransaction.completedAt) : 
-                   a.GateTransaction?.approvedAt ? new Date(a.GateTransaction.approvedAt) : new Date(0);
+                   a.GateTransaction?.approvedAt ? new Date(a.GateTransaction.approvedAt) : new Date(0)
       const dateB = b.P2PTransaction?.completedAt ? new Date(b.P2PTransaction.completedAt) : 
-                   b.GateTransaction?.approvedAt ? new Date(b.GateTransaction.approvedAt) : new Date(0);
-      return dateB.getTime() - dateA.getTime();
-    });
-
-    const latestMatch = sortedTransactions[0];
-    const phone = latestMatch.P2PTransaction?.currentTgPhone || '-';
-    const idexId = latestMatch.GateTransaction?.idexId || '-';
-
-    return { phone, idexId };
-  };
+                   b.GateTransaction?.approvedAt ? new Date(b.GateTransaction.approvedAt) : new Date(0)
+      return dateB.getTime() - dateA.getTime()
+    })
+    const latestMatch = sortedTransactions[0]
+    const phone = latestMatch.P2PTransaction?.currentTgPhone || '-'
+    const idexId = latestMatch.GateTransaction?.idexId || '-'
+    return { phone, idexId }
+  }
 
   useEffect(() => {
     if (selectedEmployee && showCommentsDialog) {
-      refetchComments();
+      refetchComments()
     }
-  }, [selectedEmployee, showCommentsDialog]);
+  }, [selectedEmployee, showCommentsDialog])
 
   useEffect(() => {
     if (selectedEmployee && showExpensesDialog) {
-      // No need to refetch since we have the data
+      // Нет необходимости в повторном запросе, так как данные уже загружены
     }
-  }, [selectedEmployee, showExpensesDialog]);
+  }, [selectedEmployee, showExpensesDialog])
 
   if (isLoading) {
-    return <div className="text-center py-4">Loading...</div>;
+    return <div className="text-center py-4">Loading...</div>
   }
 
   if (!employees || employees.length === 0) {
-    return <div className="text-center py-4">No employees found</div>;
+    return <div className="text-center py-4">No employees found</div>
   }
 
   return (
@@ -395,8 +419,18 @@ export function EmployeeTable({ limit = 10, search = "" }: EmployeeTableProps) {
           onChange={(e) => setSearchState(e.target.value)}
           className="max-w-sm"
         />
-        <div className="flex items-center space-x-2">
-        </div>
+        {/* Фильтр по статусу */}
+        <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as "all" | "online" | "offline")}>
+          <SelectTrigger className="w-[150px]">
+            <SelectValue placeholder="Все" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Все</SelectItem>
+            <SelectItem value="online">Онлайн</SelectItem>
+            <SelectItem value="offline">Оффлайн</SelectItem>
+          </SelectContent>
+        </Select>
+        {/* Можно оставить или убрать выбор валюты */}
         {/* <Select
           value={selectedCurrency}
           onValueChange={(value: 'USDT' | 'RUB') => setSelectedCurrency(value)}
@@ -411,7 +445,8 @@ export function EmployeeTable({ limit = 10, search = "" }: EmployeeTableProps) {
         </Select> */}
       </div>
 
-      <div className="overflow-x-auto">
+      {/* Обновлённые стили таблицы: обёртка с overflow, скруглением и бордером */}
+      <div className="overflow-x-auto rounded-md border">
         <Table>
           <TableHeader>
             <TableRow>
@@ -419,27 +454,34 @@ export function EmployeeTable({ limit = 10, search = "" }: EmployeeTableProps) {
               <TableHead>ФИО</TableHead>
               <TableHead>Логин</TableHead>
               <TableHead>ЗП Коэф.</TableHead>
-              <TableHead>Заказы (P2P/IDEX/Match)</TableHead>
+              <TableHead className="whitespace-nowrap items-center gap-1 flex">
+                <span className="text-blue-500">P2P</span>
+                <span className="text-yellow-500">IDEX</span>
+                <span className="text-green-500">Match</span>
+              </TableHead>
               <TableHead>Время работы</TableHead>
               <TableHead>Валовая прибыль</TableHead>
               <TableHead>ЗП</TableHead>
               <TableHead>Депозит</TableHead>
               <TableHead>Комментарии/Скам/Ошибки</TableHead>
-              <TableHead>Номер телефона\ID IDEX</TableHead>
+              <TableHead className="whitespace-nowrap items-center gap-1 flex">
+                <span className="text-blue-500">Номер телефона</span>
+                <span className="text-yellow-500">ID IDEX</span>
+              </TableHead>
               <TableHead>Детали</TableHead>
               <TableHead>Удалить</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {employees.map((employee: Employee) => (
+            {filteredEmployees.map((employee: Employee) => (
               <TableRow key={employee.id} className="cursor-pointer hover:bg-muted/50">
                 <TableCell>
                   <div 
                     className="relative h-10 w-10 cursor-pointer" 
                     onClick={() => {
-                      setSelectedEmployee(employee.id);
-                      setNewPhotoUrl(employee.passportPhoto || "");
-                      setShowPhotoDialog(true);
+                      setSelectedEmployee(employee.id)
+                      setNewPhotoUrl(employee.passportPhoto || "")
+                      setShowPhotoDialog(true)
                     }}
                   >
                     {employee.passportPhoto ? (
@@ -480,7 +522,7 @@ export function EmployeeTable({ limit = 10, search = "" }: EmployeeTableProps) {
                             id: employee.id,
                             firstName: editingName.firstName || null,
                             lastName: editingName.lastName || null,
-                          });
+                          })
                         }}
                       >
                         ✓
@@ -535,25 +577,31 @@ export function EmployeeTable({ limit = 10, search = "" }: EmployeeTableProps) {
                   </div>
                 </TableCell>
                 <TableCell>
-                  <div className={cn("flex flex-row gap-1", employee.P2PTransaction?.length === employee.gateTransactions?.length && employee.p2pTransactions?.length === employee.matchTransactionsCount ? "bg-green-500/50 rounded-lg p-1 items-center flex justify-center" : "bg-muted rounded-lg p-1 items-center flex justify-center")} >
-                    <span> {employee.P2PTransaction?.length || 0}</span>/
-                    <span >{employee.gateTransactions?.length || 0}</span>/
-                    <span> {employee.matchTransactionsCount || 0}</span>
+                  <div className={cn("flex flex-row gap-1", "rounded-lg p-1 items-center flex justify-center")}>
+                    <span className="rounded-lg p-1 items-center flex justify-center bg-muted px-2 border-t-2 border-blue-500">
+                      {employee.P2PTransaction?.length || 0}
+                    </span>
+                    <span className="rounded-lg p-1 items-center flex justify-center bg-muted px-2 border-t-2 border-yellow-500">
+                      {employee.gateTransactions?.length || 0}
+                    </span>
+                    <span className="rounded-lg p-1 items-center flex justify-center bg-muted px-2 border-t-2 border-green-500">
+                      {employee.matchTransactionsCount || 0}
+                    </span>
                   </div>
                 </TableCell>
                 <TableCell>
                   <div 
                     className="cursor-pointer hover:text-blue-500"
                     onClick={() => {
-                      setSelectedEmployee(employee.id);
-                      setShowWorkTimeDialog(true);
+                      setSelectedEmployee(employee.id)
+                      setShowWorkTimeDialog(true)
                     }}
                   >
                     {formatWorkTime(employee)}
                   </div>
                 </TableCell>
-                <TableCell>{formatCurrency(calculateGrossProfit(employee), selectedCurrency)}</TableCell>
-                <TableCell>{formatCurrency(calculateSalary(employee), selectedCurrency)}</TableCell>
+                <TableCell>{formatCurrencyValue(calculateGrossProfit(employee), selectedCurrency)}</TableCell>
+                <TableCell>{formatCurrencyValue(calculateSalary(employee), selectedCurrency)}</TableCell>
                 <TableCell>
                   <div className="flex items-center gap-2">
                     {editingDeposit?.id === employee.id ? (
@@ -566,7 +614,7 @@ export function EmployeeTable({ limit = 10, search = "" }: EmployeeTableProps) {
                       />
                     ) : (
                       <>
-                        {formatCurrency(employee.deposit || 0, selectedCurrency)}
+                        {formatCurrencyValue(employee.deposit || 0, selectedCurrency)}
                         <Button variant="ghost" size="sm" onClick={() => setEditingDeposit({ id: employee.id, value: employee.deposit || 0 })}>
                           <PencilIcon className="h-4 w-4" />
                         </Button>
@@ -577,24 +625,24 @@ export function EmployeeTable({ limit = 10, search = "" }: EmployeeTableProps) {
                 <TableCell>
                   <div className="flex flex-col gap-1">
                     <div className="flex items-center gap-2">
-                      <span>Comments: {employee.commentsCount || 0}</span>
+                      <span className="bg-muted px-2 py-1 rounded-md">Комментарии: {employee.commentsCount || 0}</span>
                       <Button
                         variant="ghost"
                         size="sm"
                         onClick={() => {
-                          setSelectedEmployee(employee.id);
-                          setShowCommentsDialog(true);
-                          refetchComments();
+                          setSelectedEmployee(employee.id)
+                          setShowCommentsDialog(true)
+                          refetchComments()
                         }}
                       >
                         <PencilIcon className="h-4 w-4" />
                       </Button>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span>Scam/Errors: {employee.employeeExpenses?.length || 0}</span>
+                      <span className="bg-muted px-2 py-1 rounded-md">Скам/Ошибки: {employee.employeeExpenses?.length || 0}</span>
                       <Button variant="ghost" size="sm" onClick={() => {
-                        setSelectedEmployee(employee.id);
-                        setShowExpensesDialog(true);
+                        setSelectedEmployee(employee.id)
+                        setShowExpensesDialog(true)
                       }}>
                         <PencilIcon className="h-4 w-4" />
                       </Button>
@@ -604,14 +652,13 @@ export function EmployeeTable({ limit = 10, search = "" }: EmployeeTableProps) {
                 <TableCell>
                   <div className="flex items-center gap-2">
                     {(() => {
-                      const { phone, idexId } = getLatestMatchDetails(employee);
+                      const { phone, idexId } = getLatestMatchDetails(employee)
                       return (
                         <>
-                          <span>{phone}</span>
-                          {phone !== '-' && idexId !== '-' && <span>/</span>}
-                          <span>{idexId}</span>
+                          <span className="bg-muted rounded-md px-2 py-1 border-t-2 border-blue-500">{phone}</span>
+                          <span className="bg-muted rounded-md px-2 py-1 border-t-2 border-yellow-500">{idexId}</span>
                         </>
-                      );
+                      )
                     })()}
                   </div>
                 </TableCell>
@@ -621,8 +668,8 @@ export function EmployeeTable({ limit = 10, search = "" }: EmployeeTableProps) {
                       variant="outline"
                       size="icon"
                       onClick={() => {
-                        setSelectedEmployeeForDetails(employee);
-                        setShowDetailsDialog(true);
+                        setSelectedEmployeeForDetails(employee)
+                        setShowDetailsDialog(true)
                       }}
                     >
                       <PencilIcon className="h-4 w-4" />
@@ -666,6 +713,7 @@ export function EmployeeTable({ limit = 10, search = "" }: EmployeeTableProps) {
         </Button>
       </div>
 
+      {/* Далее идут диалоги для фото, комментариев, расходов, отчётов по рабочему времени и подтверждения удаления */}
       <Dialog open={showPhotoDialog} onOpenChange={setShowPhotoDialog}>
         <DialogContent>
           <DialogHeader>
@@ -686,19 +734,19 @@ export function EmployeeTable({ limit = 10, search = "" }: EmployeeTableProps) {
                 type="file"
                 accept="image/*"
                 onChange={async (e) => {
-                  const file = e.target.files?.[0];
+                  const file = e.target.files?.[0]
                   if (file) {
-                    const formData = new FormData();
-                    formData.append("file", file);
+                    const formData = new FormData()
+                    formData.append("file", file)
                     try {
                       const response = await fetch("/api/upload", {
                         method: "POST",
                         body: formData,
-                      });
-                      const data = await response.json();
-                      setNewPhotoUrl(data.url);
+                      })
+                      const data = await response.json()
+                      setNewPhotoUrl(data.url)
                     } catch (error) {
-                      console.error("Error uploading file:", error);
+                      console.error("Error uploading file:", error)
                     }
                   }
                 }}
@@ -709,8 +757,8 @@ export function EmployeeTable({ limit = 10, search = "" }: EmployeeTableProps) {
               <Button
                 variant="outline"
                 onClick={() => {
-                  setShowPhotoDialog(false);
-                  setNewPhotoUrl("");
+                  setShowPhotoDialog(false)
+                  setNewPhotoUrl("")
                 }}
               >
                 Отмена
@@ -721,7 +769,7 @@ export function EmployeeTable({ limit = 10, search = "" }: EmployeeTableProps) {
                     updatePhoto.mutate({
                       id: selectedEmployee,
                       passportPhoto: newPhotoUrl,
-                    });
+                    })
                   }
                 }}
               >
@@ -732,7 +780,7 @@ export function EmployeeTable({ limit = 10, search = "" }: EmployeeTableProps) {
         </DialogContent>
       </Dialog>
 
-      {/* Comments Dialog */}
+      {/* Комментарии */}
       <Dialog open={showCommentsDialog} onOpenChange={setShowCommentsDialog}>
         <DialogContent>
           <DialogHeader>
@@ -755,7 +803,7 @@ export function EmployeeTable({ limit = 10, search = "" }: EmployeeTableProps) {
                             await editCommentMutation.mutateAsync({
                               id: comment.id,
                               content: editingComment.content
-                            });
+                            })
                           }}
                         >
                           Сохранить
@@ -789,7 +837,7 @@ export function EmployeeTable({ limit = 10, search = "" }: EmployeeTableProps) {
                             variant="ghost"
                             size="sm"
                             onClick={async () => {
-                              await deleteCommentMutation.mutateAsync({ id: comment.id });
+                              await deleteCommentMutation.mutateAsync({ id: comment.id })
                             }}
                           >
                             <Trash className="h-4 w-4" />
@@ -810,11 +858,11 @@ export function EmployeeTable({ limit = 10, search = "" }: EmployeeTableProps) {
             />
             <Button 
               onClick={async () => {
-                if (!selectedEmployee || !newComment.trim()) return;
+                if (!selectedEmployee || !newComment.trim()) return
                 await addComment.mutateAsync({
                   employeeId: selectedEmployee,
                   content: newComment,
-                });
+                })
               }}
               disabled={!newComment.trim()}
             >
@@ -824,7 +872,7 @@ export function EmployeeTable({ limit = 10, search = "" }: EmployeeTableProps) {
         </DialogContent>
       </Dialog>
 
-      {/* Expenses Dialog */}
+      {/* Расходы */}
       <Dialog open={showExpensesDialog} onOpenChange={setShowExpensesDialog}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
@@ -870,15 +918,14 @@ export function EmployeeTable({ limit = 10, search = "" }: EmployeeTableProps) {
                 placeholder="Описание..."
               />
               <Button onClick={async () => {
-                if (!selectedEmployee) return;
-                
+                if (!selectedEmployee) return
                 await addExpense.mutateAsync({
                   employeeId: selectedEmployee,
                   amount: newExpense.amount,
                   type: newExpense.type as "SCAM" | "ERROR",
                   description: newExpense.description,
                   currency: "USDT"
-                });
+                })
               }}>
                 Add
               </Button>
@@ -892,13 +939,13 @@ export function EmployeeTable({ limit = 10, search = "" }: EmployeeTableProps) {
                         {expense.type}
                       </Badge>
                       <span className="font-medium">
-                        {formatCurrency(expense.amount, expense.currency)}
+                        {formatCurrencyValue(expense.amount, expense.currency)}
                       </span>
                       <Button
                         variant="ghost"
                         size="sm"
                         onClick={() => {
-                          setEditingExpense(expense);
+                          setEditingExpense(expense)
                         }}
                       >
                         <PencilIcon className="h-4 w-4" />
@@ -907,7 +954,7 @@ export function EmployeeTable({ limit = 10, search = "" }: EmployeeTableProps) {
                         variant="ghost"
                         size="sm"
                         onClick={() => {
-                          deleteExpense.mutate({ id: expense.id });
+                          deleteExpense.mutate({ id: expense.id })
                         }}
                       >
                         <Trash className="h-4 w-4" />
@@ -927,7 +974,7 @@ export function EmployeeTable({ limit = 10, search = "" }: EmployeeTableProps) {
         </DialogContent>
       </Dialog>
 
-      {/* Work Time Dialog */}
+      {/* История работы */}
       <Dialog open={showWorkTimeDialog} onOpenChange={setShowWorkTimeDialog}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
@@ -983,11 +1030,11 @@ export function EmployeeTable({ limit = 10, search = "" }: EmployeeTableProps) {
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation Dialog */}
+      {/* Подтверждение удаления */}
       <Dialog open={employeeToDelete !== null} onOpenChange={(open) => {
         if (!open) {
-          setEmployeeToDelete(null);
-          setDeleteError(null);
+          setEmployeeToDelete(null)
+          setDeleteError(null)
         }
       }}>
         <DialogContent>
@@ -1004,8 +1051,8 @@ export function EmployeeTable({ limit = 10, search = "" }: EmployeeTableProps) {
             <Button
               variant="outline"
               onClick={() => {
-                setEmployeeToDelete(null);
-                setDeleteError(null);
+                setEmployeeToDelete(null)
+                setDeleteError(null)
               }}
             >
               Отмена
@@ -1015,10 +1062,10 @@ export function EmployeeTable({ limit = 10, search = "" }: EmployeeTableProps) {
               onClick={async () => {
                 if (employeeToDelete) {
                   try {
-                    console.log("Employee ID to delete:", employeeToDelete);
-                    await deleteEmployeeMutation.mutateAsync({ id: employeeToDelete });
+                    console.log("Employee ID to delete:", employeeToDelete)
+                    await deleteEmployeeMutation.mutateAsync({ id: employeeToDelete })
                   } catch (error) {
-                    console.error("Failed to delete employee:", error);
+                    console.error("Failed to delete employee:", error)
                   }
                 }
               }}
@@ -1034,18 +1081,18 @@ export function EmployeeTable({ limit = 10, search = "" }: EmployeeTableProps) {
         <EmployeeDetailsDialog
           isOpen={showDetailsDialog}
           onClose={() => {
-            setShowDetailsDialog(false);
-            setSelectedEmployeeForDetails(null);
+            setShowDetailsDialog(false)
+            setSelectedEmployeeForDetails(null)
           }}
           employee={selectedEmployeeForDetails}
           fromDate={fromDate}
           toDate={toDate}
           onDateChange={(from, to) => {
-            setFromDate(from);
-            setToDate(to);
+            setFromDate(from)
+            setToDate(to)
           }}
         />
       )}
     </div>
-  );
+  )
 }

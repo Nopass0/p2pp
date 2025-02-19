@@ -424,6 +424,45 @@ export const adminRouter = createTRPCRouter({
       });
     }),
 
+    createTransactionMatch: adminProcedure
+    .input(
+      z.object({
+        p2pTxId: z.number(),
+        gateTxId: z.number(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const { p2pTxId, gateTxId } = input;
+
+      const p2pTx = await ctx.db.p2PTransaction.findUnique({ where: { id: p2pTxId } });
+      const gateTx = await ctx.db.gateTransaction.findUnique({ where: { id: gateTxId } });
+
+      if (!p2pTx || !gateTx) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Одна из транзакций не найдена",
+        });
+      }
+
+      const p2pTime = new Date(p2pTx.completedAt || p2pTx.createdAt).getTime();
+      const gateTime = new Date(gateTx.approvedAt || gateTx.createdAt).getTime();
+      const timeDifference = Math.abs(p2pTime - gateTime);
+
+      // Добавляем поле updatedAt
+      const match = await ctx.db.transactionMatch.create({
+        data: {
+          userId: ctx.user.id,
+          p2pTxId,
+          gateTxId,
+          isAutoMatched: false,
+          timeDifference,
+          updatedAt: new Date(),
+        },
+      });
+
+      return match;
+    }),
+
   getEmployeeExpenses: adminProcedure
     .input(
       z.object({
@@ -2277,6 +2316,113 @@ const incomes = await ctx.db.expense.findMany({
       }
     }),
 
+  // SIM Cards endpoints
+  getSimCards: protectedProcedure
+    .query(async ({ ctx }) => {
+      return ctx.db.simCard.findMany({
+        include: {
+          bankCard: true,
+        },
+        orderBy: {
+          orderNumber: 'asc',
+        },
+      });
+    }),
+
+  addSimCard: protectedProcedure
+    .input(z.object({
+      phoneNumber: z.string(),
+      status: z.enum(['NEW', 'VERIFIED', 'WORKING', 'BLOCKED', 'FROZEN_FUNDS']),
+      category: z.enum(['TELEGRAM', 'BANK']),
+      bankCard: z.object({
+        bankName: z.string(),
+        ownerName: z.string(),
+        balance: z.number(),
+      }).optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      try {
+        return await ctx.db.$transaction(async (tx) => {
+          // Create SimCard first
+          const simCard = await tx.simCard.create({
+            data: {
+              phoneNumber: input.phoneNumber,
+              status: input.status,
+              category: input.category,
+            },
+          });
+
+          // If it's a bank card, create the associated bank card
+          if (input.category === 'BANK' && input.bankCard) {
+            await tx.bankCard.create({
+              data: {
+                simCardId: simCard.id,
+                bankName: input.bankCard.bankName,
+                ownerName: input.bankCard.ownerName,
+                balance: input.bankCard.balance,
+              },
+            });
+          }
+
+          // Return the created SimCard with its bank card
+          return await tx.simCard.findUnique({
+            where: { id: simCard.id },
+            include: { bankCard: true },
+          });
+        });
+      } catch (error) {
+        if (error.code === 'P2002') {
+          throw new TRPCError({
+            code: 'CONFLICT',
+            message: 'Номер телефона уже существует',
+          });
+        }
+        throw error;
+      }
+    }),
+
+  updateSimCard: protectedProcedure
+    .input(z.object({
+      id: z.number(),
+      phoneNumber: z.string().optional(),
+      status: z.enum(['NEW', 'VERIFIED', 'WORKING', 'BLOCKED', 'FROZEN_FUNDS']).optional(),
+      bankCard: z.object({
+        bankName: z.string(),
+        ownerName: z.string(),
+        balance: z.number(),
+      }).optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const simCard = await ctx.db.simCard.update({
+        where: { id: input.id },
+        data: {
+          ...(input.phoneNumber && { phoneNumber: input.phoneNumber }),
+          ...(input.status && { status: input.status }),
+          ...(input.bankCard && {
+            bankCard: {
+              upsert: {
+                create: input.bankCard,
+                update: input.bankCard,
+              },
+            },
+          }),
+        },
+        include: {
+          bankCard: true,
+        },
+      });
+      return simCard;
+    }),
+
+  deleteSimCard: protectedProcedure
+    .input(z.object({
+      id: z.number(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      return ctx.db.simCard.delete({
+        where: { id: input.id },
+      });
+    }),
 });
 
 // Helper functions

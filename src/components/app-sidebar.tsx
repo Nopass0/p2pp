@@ -17,6 +17,7 @@ import {
   Settings,
   UserCog,
   Box,
+  Package,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -121,6 +122,11 @@ const adminMenuItems = [
   //   icon: Activity,
   //   path: "/dashboard/admin/action-logs",
   // },
+  {
+    title: "Ресурсы",
+    icon: Package,
+    path: "/dashboard/admin/resources",
+  },
   {
     title: "Версии приложения",
     icon: Box,
