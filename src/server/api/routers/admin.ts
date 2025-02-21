@@ -96,6 +96,19 @@ const deleteEmployeeInput = z.object({
   id: z.number(),
 });
 
+const getIdexRecordsInput = z.object({
+  idexId: z.string().optional(),
+  search: z.string().optional(),
+  dateRange: z.object({
+    from: z.string(),
+    to: z.string()
+  }).optional(),
+  limit: z.number().min(1).max(100).default(10),
+  page: z.number().min(1).default(1),
+  sortBy: z.string().optional(),
+  sortDirection: z.enum(["asc", "desc"]).optional(),
+});
+
 async function calculateWorkTime(
   db: PrismaClient,
   userId: number,
@@ -2422,6 +2435,110 @@ const incomes = await ctx.db.expense.findMany({
       return ctx.db.simCard.delete({
         where: { id: input.id },
       });
+    }),
+  getIdexRecords: adminProcedure
+    .input(
+      z.object({
+        idexId: z.string().optional(),
+        search: z.string().optional(),
+        dateRange: z.object({
+          from: z.string(),
+          to: z.string()
+        }).optional(),
+        limit: z.number().min(1).max(100).default(10),
+        page: z.number().min(1).default(1),
+        sortBy: z.string().optional(),
+        sortDirection: z.enum(["asc", "desc"]).optional(),
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      const { search, dateRange, limit, page, sortBy, sortDirection } = input;
+      const skip = (page - 1) * limit;
+
+      const where: any = {};
+
+      if (dateRange) {
+        where.createdAt = {
+          gte: new Date(dateRange.from),
+          lte: new Date(`${dateRange.to}T23:59:59.999Z`),
+        };
+      }
+
+      if (search) {
+        const searchNumber = parseFloat(search);
+        const isNumericSearch = !isNaN(searchNumber);
+
+        where.OR = [
+          { idexId: { contains: search, mode: 'insensitive' } },
+          { transactionId: { contains: search, mode: 'insensitive' } },
+          { wallet: { contains: search, mode: 'insensitive' } },
+          { bankName: { contains: search, mode: 'insensitive' } },
+          { bankLabel: { contains: search, mode: 'insensitive' } },
+          { paymentMethod: { contains: search, mode: 'insensitive' } },
+          { bankCode: { contains: search, mode: 'insensitive' } },
+          { traderName: { contains: search, mode: 'insensitive' } },
+          { user: { 
+            OR: [
+              { username: { contains: search, mode: 'insensitive' } },
+              { firstName: { contains: search, mode: 'insensitive' } },
+              { lastName: { contains: search, mode: 'insensitive' } }
+            ]
+          }}
+        ];
+
+        // Add numeric search conditions if the search term is a number
+        if (isNumericSearch) {
+          where.OR.push(
+            { amountRub: searchNumber },
+            { amountUsdt: searchNumber },
+            { totalRub: searchNumber },
+            { totalUsdt: searchNumber },
+            { course: searchNumber },
+            { successRate: searchNumber },
+            { commissionRate: searchNumber },
+            { status: parseInt(search, 10) }
+          );
+        }
+      }
+      
+      const [records, total] = await Promise.all([
+        ctx.db.gateTransaction.findMany({
+          where,
+          skip,
+          take: limit,
+          orderBy: sortBy ? { [sortBy]: sortDirection || 'desc' } : { createdAt: 'desc' },
+          include: {
+            user: {
+              select: {
+                id: true,
+                username: true,
+                firstName: true,
+                lastName: true
+              }
+            }
+          }
+        }),
+        ctx.db.gateTransaction.count({ where })
+      ]);
+
+      // Calculate totals for all numeric columns
+      const totals = {
+        amountRub: records.reduce((sum, record) => sum + record.amountRub, 0),
+        amountUsdt: records.reduce((sum, record) => sum + record.amountUsdt, 0),
+        totalRub: records.reduce((sum, record) => sum + record.totalRub, 0),
+        totalUsdt: records.reduce((sum, record) => sum + record.totalUsdt, 0),
+        course: records.reduce((sum, record) => sum + (record.course || 0), 0) / (records.length || 1), // Average course
+        successCount: records.reduce((sum, record) => sum + (record.successCount || 0), 0),
+        successRate: records.reduce((sum, record) => sum + (record.successRate || 0), 0) / (records.length || 1), // Average success rate
+        commissionRate: records.reduce((sum, record) => sum + (record.commissionRate || 0), 0) / (records.length || 1), // Average commission rate
+      };
+
+      return {
+        records,
+        total,
+        totals,
+        pageCount: Math.ceil(total / limit)
+      };
     }),
 });
 

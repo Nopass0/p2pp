@@ -457,6 +457,7 @@ export function EmployeeTable({ limit = 10, search = "" }: EmployeeTableProps) {
               <TableHead className="whitespace-nowrap items-center gap-1 flex">
                 <span className="text-blue-500">P2P</span>
                 <span className="text-yellow-500">IDEX</span>
+                <span className="text-red-500">Bybit</span>
                 <span className="text-green-500">Match</span>
               </TableHead>
               <TableHead>Время работы</TableHead>
@@ -583,6 +584,9 @@ export function EmployeeTable({ limit = 10, search = "" }: EmployeeTableProps) {
                     </span>
                     <span className="rounded-lg p-1 items-center flex justify-center bg-muted px-2 border-t-2 border-yellow-500">
                       {employee.gateTransactions?.length || 0}
+                    </span>
+                    <span className="rounded-lg p-1 items-center flex justify-center bg-muted px-2 border-t-2 border-red-500">
+                      {employee.bybitTransactions?.length || 0}
                     </span>
                     <span className="rounded-lg p-1 items-center flex justify-center bg-muted px-2 border-t-2 border-green-500">
                       {employee.matchTransactionsCount || 0}

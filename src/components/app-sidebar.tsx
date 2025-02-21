@@ -92,6 +92,11 @@ const adminMenuItems = [
     icon: Box,
     path: "/dashboard/admin/links",
   },
+  {
+    title: "IDEX Транзакции",
+    icon: Receipt,
+    path: "/dashboard/admin/idex",
+  },
   // {
   //   title: "Сотрудники",
   //   icon: UserCog,
