@@ -266,6 +266,16 @@ export function EmployeeDetailsDialog({
       p2pTxId = manualAttachmentTarget.tx.id;
       gateTxId = manualAttachmentSource.tx.id;
     }
+
+    // Check if either transaction is already matched
+    const isP2PMatched = (employee.matchTransactions || []).some((match: any) => match.p2pTxId === p2pTxId);
+    const isGateMatched = (employee.matchTransactions || []).some((match: any) => match.gateTxId === gateTxId);
+
+    if (isP2PMatched || isGateMatched) {
+      console.error("Одна или обе транзакции уже скреплены с другими транзакциями.");
+      return;
+    }
+
     try {
       await createMatch.mutateAsync({ p2pTxId, gateTxId });
       // Сброс режима скрепления
