@@ -261,10 +261,10 @@ export function EmployeeDetailsDialog({
     let p2pTxId, gateTxId;
     if (manualAttachmentSource.type === "p2p") {
       p2pTxId = manualAttachmentSource.tx.id;
-      gateTxId = manualAttachmentTarget.tx.transactionId;
+      gateTxId = Number(manualAttachmentTarget.tx.transactionId);
     } else {
       p2pTxId = manualAttachmentTarget.tx.id;
-      gateTxId = manualAttachmentSource.tx.transactionId;
+      gateTxId = Number(manualAttachmentSource.tx.transactionId);
     }
 
     // Check if either transaction is already matched
