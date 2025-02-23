@@ -457,7 +457,7 @@ export const adminRouter = createTRPCRouter({
       if (existingP2PMatch || existingGateMatch) {
         throw new TRPCError({
           code: "BAD_REQUEST",
-          message: `One or both transactions are already matched with other transactions. existingP2PMatch: ${existingP2PMatch}, existingGateMatch: ${existingGateMatch}`,
+          message: `One or both transactions are already matched with other transactions. existingP2PMatch: ${JSON.stringify(existingP2PMatch, null, 2)}, existingGateMatch: ${JSON.stringify(existingGateMatch, null, 2)}`,
         });
       }
 
