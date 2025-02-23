@@ -2540,6 +2540,70 @@ const incomes = await ctx.db.expense.findMany({
         pageCount: Math.ceil(total / limit)
       };
     }),
+  getIdexStats: adminProcedure
+    .input(
+      z.object({
+        dateRange: dateRangeInput,
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      const { from, to } = getDateRangeFromInput(input.dateRange);
+
+      // Get all IDEX transactions for the date range
+      const records = await ctx.db.gateTransaction.findMany({
+        where: {
+          createdAt: {
+            gte: from,
+            lte: to,
+          },
+          idexId: {
+            not: null
+          }
+        },
+        select: {
+          idexId: true,
+          amountRub: true,
+          amountUsdt: true,
+          totalRub: true,
+          totalUsdt: true,
+        },
+      });
+
+      // Group records by IDEX ID and calculate statistics
+      const statsMap = records.reduce((acc, record) => {
+        if (!record.idexId) return acc;
+        
+        const existing = acc.get(record.idexId) || {
+          idexId: record.idexId,
+          totalRub: 0,
+          totalUsdt: 0,
+          transactionCount: 0,
+          averageRub: 0,
+          averageUsdt: 0,
+        };
+
+        existing.totalRub += record.totalRub;
+        existing.totalUsdt += record.totalUsdt;
+        existing.transactionCount += 1;
+        acc.set(record.idexId, existing);
+
+        return acc;
+      }, new Map());
+
+      // Calculate averages and convert to array
+      const stats = Array.from(statsMap.values()).map(stat => ({
+        ...stat,
+        averageRub: stat.totalRub / stat.transactionCount,
+        averageUsdt: stat.totalUsdt / stat.transactionCount,
+      }));
+
+      // Sort by total RUB descending
+      stats.sort((a, b) => b.totalRub - a.totalRub);
+
+      return {
+        stats,
+      };
+    }),
 });
 
 // Helper functions
