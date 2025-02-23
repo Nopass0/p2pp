@@ -437,7 +437,7 @@ export const adminRouter = createTRPCRouter({
       });
     }),
 
-    createTransactionMatch: adminProcedure
+  createTransactionMatch: adminProcedure
     .input(
       z.object({
         p2pTxId: z.number(),
@@ -445,35 +445,62 @@ export const adminRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const { p2pTxId, gateTxId } = input;
+      // Check if either transaction is already matched
+      const existingP2PMatch = await ctx.db.transactionMatch.findFirst({
+        where: { p2pTxId: input.p2pTxId },
+      });
 
-      const p2pTx = await ctx.db.p2PTransaction.findUnique({ where: { id: p2pTxId } });
-      const gateTx = await ctx.db.gateTransaction.findUnique({ where: { id: gateTxId } });
+      const existingGateMatch = await ctx.db.transactionMatch.findFirst({
+        where: { gateTxId: input.gateTxId },
+      });
 
-      if (!p2pTx || !gateTx) {
+      if (existingP2PMatch || existingGateMatch) {
         throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "Одна из транзакций не найдена",
+          code: "BAD_REQUEST",
+          message: "One or both transactions are already matched with other transactions.",
         });
       }
 
-      const p2pTime = new Date(p2pTx.completedAt || p2pTx.createdAt).getTime();
-      const gateTime = new Date(gateTx.approvedAt || gateTx.createdAt).getTime();
-      const timeDifference = Math.abs(p2pTime - gateTime);
+      // Get the P2P transaction to get its userId
+      const p2pTx = await ctx.db.p2PTransaction.findUnique({
+        where: { id: input.p2pTxId },
+      });
 
-      // Добавляем поле updatedAt
-      const match = await ctx.db.transactionMatch.create({
+      if (!p2pTx) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "P2P transaction not found",
+        });
+      }
+
+      // Get the Gate transaction to verify it exists
+      const gateTx = await ctx.db.gateTransaction.findUnique({
+        where: { id: input.gateTxId },
+      });
+
+      if (!gateTx) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Gate transaction not found",
+        });
+      }
+
+      // Calculate time difference between transactions
+      const p2pDate = p2pTx.completedAt;
+      const gateDate = gateTx.approvedAt || gateTx.createdAt;
+      const timeDifference = Math.abs(p2pDate.getTime() - gateDate.getTime()) / 1000; // in seconds
+
+      // Create the match
+      return ctx.db.transactionMatch.create({
         data: {
-          userId: ctx.user.id,
-          p2pTxId,
-          gateTxId,
-          isAutoMatched: false,
+          userId: p2pTx.userId,
+          p2pTxId: input.p2pTxId,
+          gateTxId: input.gateTxId,
           timeDifference,
+          isAutoMatched: false,
           updatedAt: new Date(),
         },
       });
-
-      return match;
     }),
 
   getEmployeeExpenses: adminProcedure
@@ -506,6 +533,8 @@ export const adminRouter = createTRPCRouter({
 
       const updatedUser = await db.user.update({
         where: { id: employeeId },
+        //@ts-ignore
+
         data: { commissionRate: rate },
       });
 
