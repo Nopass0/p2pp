@@ -12,6 +12,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { api } from "@/trpc/react";
+import { AlertTriangle } from "lucide-react";
 
 interface EmployeeDetailsDialogProps {
   isOpen: boolean;
@@ -102,6 +103,18 @@ const sortTransactionsByDate = (
   });
 };
 
+/** Универсальная функция сортировки по прибыли */
+const sortTransactionsByProfit = (
+  txs: any[],
+  sortOrder: "asc" | "desc"
+) => {
+  return [...txs].sort((a, b) => {
+    const profitA = (a.GateTransaction?.totalUsdt ?? 0) - (a.P2PTransaction?.amount * 1.009 ?? 0);
+    const profitB = (b.GateTransaction?.totalUsdt ?? 0) - (b.P2PTransaction?.amount * 1.009 ?? 0);
+    return sortOrder === "asc" ? profitA - profitB : profitB - profitA;
+  });
+};
+
 /** Панель для отображения выбранных транзакций (слева и справа) */
 function ManualMatchPanel({
   source,
@@ -176,6 +189,7 @@ export function EmployeeDetailsDialog({
   onDateChange,
 }: EmployeeDetailsDialogProps) {
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
+  const [sortBy, setSortBy] = useState<"date" | "profit">("date");
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("matched");
 
@@ -296,7 +310,10 @@ export function EmployeeDetailsDialog({
   };
   // --- Конец функций ручного скрепления ---
 
-  const sortedMatchedTransactions = sortTransactionsByDate(matchedTransactions, getMatchedTxDate, sortOrder);
+  // Сортировка транзакций в зависимости от выбранного поля и порядка
+  const sortedMatchedTransactions = sortBy === "date"
+    ? sortTransactionsByDate(matchedTransactions, getMatchedTxDate, sortOrder)
+    : sortTransactionsByProfit(matchedTransactions, sortOrder);
   const sortedUnmatchedP2PTransactions = sortTransactionsByDate(unmatchedP2PTransactions, getP2PTxDate, sortOrder);
   const sortedUnmatchedGateTransactions = sortTransactionsByDate(unmatchedGateTransactions, getGateTxDate, sortOrder);
   const sortedAllP2PTransactions = sortTransactionsByDate(allP2PTransactions, getP2PTxDate, sortOrder);
@@ -434,9 +451,20 @@ export function EmployeeDetailsDialog({
           <div className="flex flex-wrap gap-4 mt-4 items-center">
             <DateTimePicker date={fromDate} setDate={(date) => onDateChange(date, toDate)} label="С" />
             <DateTimePicker date={toDate} setDate={(date) => onDateChange(fromDate, date)} label="По" />
-            <Button onClick={() => setSortOrder(sortOrder === "asc" ? "desc" : "asc")} variant="secondary">
-              Сортировать по дате: {sortOrder === "asc" ? "От меньшего к большему" : "От большего к меньшему"}
-            </Button>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <Button 
+                onClick={() => setSortOrder(sortOrder === "asc" ? "desc" : "asc")} 
+                variant="secondary"
+              >
+                Сортировка: {sortOrder === "asc" ? "По возрастанию" : "По убыванию"}
+              </Button>
+              <Button 
+                onClick={() => setSortBy(sortBy === "date" ? "profit" : "date")} 
+                variant="outline"
+              >
+                Сортировать по: {sortBy === "date" ? "Дате" : "Прибыли"}
+              </Button>
+            </div>
           </div>
         </DialogHeader>
 
@@ -603,64 +631,86 @@ export function EmployeeDetailsDialog({
                     <TableHead>Сумма рублевая (P2P / IDEX)</TableHead>
                     <TableHead>Сумма P2P</TableHead>
                     <TableHead>Сумма Gate</TableHead>
-                    <TableHead>Прибыль</TableHead>
+                    <TableHead 
+                      className="cursor-pointer hover:text-primary" 
+                      onClick={() => {
+                        setSortBy("profit");
+                        setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+                      }}
+                    >
+                      Прибыль {sortBy === "profit" && (sortOrder === "asc" ? "↑" : "↓")}
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredMatchedTransactions.map((tx: any, index: number) => (
-                    <TableRow key={tx.id || `matched-${index}`} className="h-8">
-                      <TableCell>
-                        <div className="flex flex-col gap-1">
-                          {tx.P2PTransaction?.completedAt ? (
-                            <FormattedDateTime date={tx.P2PTransaction.completedAt} />
+                  {filteredMatchedTransactions.map((tx: any, index: number) => {
+                    const profit = (tx.GateTransaction?.totalUsdt ?? 0) - (tx.P2PTransaction?.amount * commission ?? 0);
+                    const isNegativeProfit = profit < 0;
+                    
+                    return (
+                      <TableRow key={tx.id || `matched-${index}`} className="h-8">
+                        <TableCell>
+                          <div className="flex flex-col gap-1">
+                            {tx.P2PTransaction?.completedAt ? (
+                              <FormattedDateTime date={tx.P2PTransaction.completedAt} />
+                            ) : (
+                              "N/A"
+                            )}
+                            {tx.GateTransaction?.approvedAt ? (
+                              <FormattedDateTime date={tx.GateTransaction.approvedAt} />
+                            ) : (
+                              "N/A"
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          {tx.P2PTransaction?.currentTgPhone ? (
+                            <div className="flex items-center">
+                              <PhoneBadge phone={tx.P2PTransaction.currentTgPhone} />
+                              <span>{tx.P2PTransaction.currentTgPhone}</span>
+                            </div>
                           ) : (
                             "N/A"
                           )}
-                          {tx.GateTransaction?.approvedAt ? (
-                            <FormattedDateTime date={tx.GateTransaction.approvedAt} />
+                        </TableCell>
+                        <TableCell>
+                          {tx.GateTransaction?.idexId ? (
+                            <div className="flex items-center">
+                              <IdexBadge idex={tx.GateTransaction.idexId} />
+                              <span>{tx.GateTransaction.idexId}</span>
+                            </div>
                           ) : (
                             "N/A"
                           )}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        {tx.P2PTransaction?.currentTgPhone ? (
+                        </TableCell>
+                        <TableCell>
                           <div className="flex items-center">
-                            <PhoneBadge phone={tx.P2PTransaction.currentTgPhone} />
-                            <span>{tx.P2PTransaction.currentTgPhone}</span>
+                            <span>{(tx.P2PTransaction?.totalRub ?? 0).toFixed(2)} RUB</span>
+                            <span className="mx-2 border-l border-gray-300 h-4" />
+                            <span>{(tx.GateTransaction?.amountRub ?? 0).toFixed(2)} RUB</span>
                           </div>
-                        ) : (
-                          "N/A"
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {tx.GateTransaction?.idexId ? (
-                          <div className="flex items-center">
-                            <IdexBadge idex={tx.GateTransaction.idexId} />
-                            <span>{tx.GateTransaction.idexId}</span>
-                          </div>
-                        ) : (
-                          "N/A"
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center">
-                          <span>{(tx.P2PTransaction?.totalRub ?? 0).toFixed(2)} RUB</span>
-                          <span className="mx-2 border-l border-gray-300 h-4" />
-                          <span>{(tx.GateTransaction?.amountRub ?? 0).toFixed(2)} RUB</span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        {(tx.P2PTransaction?.amount * commission ?? 0).toFixed(2)} USDT
-                      </TableCell>
-                      <TableCell>
-                        {(tx.GateTransaction?.totalUsdt ?? 0).toFixed(2)} USDT
-                      </TableCell>
-                      <TableCell>
-                        {((tx.GateTransaction?.totalUsdt ?? 0) - (tx.P2PTransaction?.amount * commission ?? 0)).toFixed(2)} USDT
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                        </TableCell>
+                        <TableCell>
+                          {(tx.P2PTransaction?.amount * commission ?? 0).toFixed(2)} USDT
+                        </TableCell>
+                        <TableCell>
+                          {(tx.GateTransaction?.totalUsdt ?? 0).toFixed(2)} USDT
+                        </TableCell>
+                        <TableCell>
+                          {isNegativeProfit ? (
+                            <div className="flex items-center gap-1">
+                              <span className="flex items-center gap-1.5 bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-200 px-2 py-0.5 rounded-full">
+                                <AlertTriangle size={14} className="text-red-500" />
+                                {profit.toFixed(2)} USDT
+                              </span>
+                            </div>
+                          ) : (
+                            <span>{profit.toFixed(2)} USDT</span>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </ScrollArea>
