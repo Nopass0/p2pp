@@ -2581,7 +2581,7 @@ const incomes = await ctx.db.expense.findMany({
       // Get all IDEX transactions for the date range
       const records = await ctx.db.gateTransaction.findMany({
         where: {
-          createdAt: {
+          approvedAt: {
             gte: from,
             lte: to,
           },

@@ -113,12 +113,18 @@ export default function AdminIdexPage() {
                   <Calendar
                     initialFocus
                     mode="single"
-                    selected={new Date(dateRange.from)}
+                    selected={dateRange.from ? new Date(`${dateRange.from}T12:00:00`) : undefined}
                     onSelect={(date) => {
                       if (date) {
+                        // Use the local date parts to avoid timezone issues
+                        const year = date.getFullYear();
+                        const month = String(date.getMonth() + 1).padStart(2, '0');
+                        const day = String(date.getDate()).padStart(2, '0');
+                        const formattedDate = `${year}-${month}-${day}`;
+                        
                         setDateRange((prev) => ({
                           ...prev,
-                          from: date.toISOString().split("T")[0],
+                          from: formattedDate,
                         }));
                       }
                     }}
@@ -160,12 +166,18 @@ export default function AdminIdexPage() {
                   <Calendar
                     initialFocus
                     mode="single"
-                    selected={new Date(dateRange.to)}
+                    selected={dateRange.to ? new Date(`${dateRange.to}T12:00:00`) : undefined}
                     onSelect={(date) => {
                       if (date) {
+                        // Use the local date parts to avoid timezone issues
+                        const year = date.getFullYear();
+                        const month = String(date.getMonth() + 1).padStart(2, '0');
+                        const day = String(date.getDate()).padStart(2, '0');
+                        const formattedDate = `${year}-${month}-${day}`;
+                        
                         setDateRange((prev) => ({
                           ...prev,
-                          to: date.toISOString().split("T")[0],
+                          to: formattedDate,
                         }));
                       }
                     }}
