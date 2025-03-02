@@ -115,6 +115,22 @@ const sortTransactionsByProfit = (
   });
 };
 
+/** Универсальная функция сортировки по спреду (%) */
+const sortTransactionsBySpread = (
+  txs: any[],
+  sortOrder: "asc" | "desc"
+) => {
+  return [...txs].sort((a, b) => {
+    const p2pAmountA = a.P2PTransaction?.amount * 1.009 ?? 0;
+    const p2pAmountB = b.P2PTransaction?.amount * 1.009 ?? 0;
+    const profitA = (a.GateTransaction?.totalUsdt ?? 0) - p2pAmountA;
+    const profitB = (b.GateTransaction?.totalUsdt ?? 0) - p2pAmountB;
+    const spreadA = p2pAmountA === 0 ? 0 : (profitA / p2pAmountA) * 100;
+    const spreadB = p2pAmountB === 0 ? 0 : (profitB / p2pAmountB) * 100;
+    return sortOrder === "asc" ? spreadA - spreadB : spreadB - spreadA;
+  });
+};
+
 /** Панель для отображения выбранных транзакций (слева и справа) */
 function ManualMatchPanel({
   source,
@@ -189,7 +205,7 @@ export function EmployeeDetailsDialog({
   onDateChange,
 }: EmployeeDetailsDialogProps) {
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
-  const [sortBy, setSortBy] = useState<"date" | "profit">("date");
+  const [sortBy, setSortBy] = useState<"date" | "profit" | "spread">("date");
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("matched");
 
@@ -311,9 +327,10 @@ export function EmployeeDetailsDialog({
   // --- Конец функций ручного скрепления ---
 
   // Сортировка транзакций в зависимости от выбранного поля и порядка
-  const sortedMatchedTransactions = sortBy === "date"
-    ? sortTransactionsByDate(matchedTransactions, getMatchedTxDate, sortOrder)
-    : sortTransactionsByProfit(matchedTransactions, sortOrder);
+  const sortedMatchedTransactions = 
+    sortBy === "date" ? sortTransactionsByDate(matchedTransactions, getMatchedTxDate, sortOrder) :
+    sortBy === "profit" ? sortTransactionsByProfit(matchedTransactions, sortOrder) :
+    sortTransactionsBySpread(matchedTransactions, sortOrder);
   const sortedUnmatchedP2PTransactions = sortTransactionsByDate(unmatchedP2PTransactions, getP2PTxDate, sortOrder);
   const sortedUnmatchedGateTransactions = sortTransactionsByDate(unmatchedGateTransactions, getGateTxDate, sortOrder);
   const sortedAllP2PTransactions = sortTransactionsByDate(allP2PTransactions, getP2PTxDate, sortOrder);
@@ -347,10 +364,15 @@ export function EmployeeDetailsDialog({
           "Сумма P2P",
           "Сумма Gate",
           "Прибыль",
+          "Спред (%)",
         ];
         dataToExport = filteredMatchedTransactions.map((tx: any) => {
           const p2pDate = tx.P2PTransaction?.completedAt ? new Date(tx.P2PTransaction.completedAt) : null;
           const gateDate = tx.GateTransaction?.approvedAt ? new Date(tx.GateTransaction.approvedAt) : null;
+          const p2pAmount = tx.P2PTransaction?.amount * commission ?? 0;
+          const gateAmount = tx.GateTransaction?.totalUsdt ?? 0;
+          const profit = gateAmount - p2pAmount;
+          const spread = p2pAmount === 0 ? 0 : (profit / p2pAmount) * 100;
           return [
             p2pDate ? format(p2pDate, "d MMMM yyyy'г.'", { locale: ru }) : "N/A",
             p2pDate ? format(p2pDate, "HH:mm") : "N/A",
@@ -362,7 +384,8 @@ export function EmployeeDetailsDialog({
             (tx.GateTransaction?.amountRub ?? 0).toFixed(2),
             (tx.P2PTransaction?.amount * commission ?? 0).toFixed(2),
             (tx.GateTransaction?.totalUsdt ?? 0).toFixed(2),
-            ((tx.GateTransaction?.totalUsdt ?? 0) - (tx.P2PTransaction?.amount * commission ?? 0)).toFixed(2),
+            profit.toFixed(2),
+            spread.toFixed(2),
           ];
         });
         break;
@@ -388,7 +411,7 @@ export function EmployeeDetailsDialog({
             tx.transactionId || "N/A",
             tx.idexId || "N/A",
             (tx.totalUsdt ?? 0).toFixed(2),
-            (tx.totalRub ?? 0).toFixed(2),
+            (tx.amountRub ?? 0).toFixed(2),
             tx.status || "N/A",
           ];
         });
@@ -459,10 +482,12 @@ export function EmployeeDetailsDialog({
                 Сортировка: {sortOrder === "asc" ? "По возрастанию" : "По убыванию"}
               </Button>
               <Button 
-                onClick={() => setSortBy(sortBy === "date" ? "profit" : "date")} 
+                onClick={() => {
+                  setSortBy(sortBy === "date" ? "profit" : sortBy === "profit" ? "spread" : "date");
+                }} 
                 variant="outline"
               >
-                Сортировать по: {sortBy === "date" ? "Дате" : "Прибыли"}
+                Сортировать по: {sortBy === "date" ? "Дате" : sortBy === "profit" ? "Прибыли" : "Спреду"}
               </Button>
             </div>
           </div>
@@ -640,12 +665,25 @@ export function EmployeeDetailsDialog({
                     >
                       Прибыль {sortBy === "profit" && (sortOrder === "asc" ? "↑" : "↓")}
                     </TableHead>
+                    <TableHead 
+                      className="cursor-pointer hover:text-primary" 
+                      onClick={() => {
+                        setSortBy("spread");
+                        setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+                      }}
+                    >
+                      Спред (%) {sortBy === "spread" && (sortOrder === "asc" ? "↑" : "↓")}
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredMatchedTransactions.map((tx: any, index: number) => {
-                    const profit = (tx.GateTransaction?.totalUsdt ?? 0) - (tx.P2PTransaction?.amount * commission ?? 0);
+                    const p2pAmount = tx.P2PTransaction?.amount * commission ?? 0;
+                    const gateAmount = tx.GateTransaction?.totalUsdt ?? 0;
+                    const profit = gateAmount - p2pAmount;
+                    const spread = p2pAmount === 0 ? 0 : (profit / p2pAmount) * 100;
                     const isNegativeProfit = profit < 0;
+                    const isNegativeSpread = spread < 0;
                     
                     return (
                       <TableRow key={tx.id || `matched-${index}`} className="h-8">
@@ -691,10 +729,10 @@ export function EmployeeDetailsDialog({
                           </div>
                         </TableCell>
                         <TableCell>
-                          {(tx.P2PTransaction?.amount * commission ?? 0).toFixed(2)} USDT
+                          {p2pAmount.toFixed(2)} USDT
                         </TableCell>
                         <TableCell>
-                          {(tx.GateTransaction?.totalUsdt ?? 0).toFixed(2)} USDT
+                          {gateAmount.toFixed(2)} USDT
                         </TableCell>
                         <TableCell>
                           {isNegativeProfit ? (
@@ -706,6 +744,18 @@ export function EmployeeDetailsDialog({
                             </div>
                           ) : (
                             <span>{profit.toFixed(2)} USDT</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {isNegativeSpread ? (
+                            <div className="flex items-center gap-1">
+                              <span className="flex items-center gap-1.5 bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-200 px-2 py-0.5 rounded-full">
+                                <AlertTriangle size={14} className="text-red-500" />
+                                {spread.toFixed(2)}%
+                              </span>
+                            </div>
+                          ) : (
+                            <span>{spread.toFixed(2)}%</span>
                           )}
                         </TableCell>
                       </TableRow>
